@@ -1,5 +1,6 @@
 """Generate the kanjo-html-hub index page from files under projects/."""
 
+import subprocess
 from html.parser import HTMLParser
 
 
@@ -43,3 +44,19 @@ def parse_head(html_text):
         pass
     title = parser.title.strip() if parser.title else None
     return (title or None), parser.description
+
+
+def git_last_modified(path):
+    """Return the last commit date (YYYY-MM-DD) for path, or None."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%cs", "--", str(path.name)],
+            cwd=str(path.parent),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    value = result.stdout.strip()
+    return value or None
