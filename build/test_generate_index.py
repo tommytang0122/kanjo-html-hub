@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from generate_index import parse_head, git_last_modified, collect_entries
+from generate_index import parse_head, git_last_modified, collect_entries, render_index
 
 
 class ParseHeadTests(unittest.TestCase):
@@ -83,6 +83,37 @@ class CollectEntriesTests(unittest.TestCase):
     def test_missing_projects_dir_returns_empty(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(collect_entries(Path(tmp) / "projects"), {})
+
+
+class RenderIndexTests(unittest.TestCase):
+    def test_renders_project_sections_and_links(self):
+        groups = {
+            "alpha": [
+                {"title": "Spec A", "description": "desc", "project": "alpha",
+                 "href": "projects/alpha/spec.html", "updated": "2026-05-20"},
+            ]
+        }
+        out = render_index(groups)
+        self.assertIn("<h2>alpha</h2>", out)
+        self.assertIn('href="projects/alpha/spec.html"', out)
+        self.assertIn("Spec A", out)
+        self.assertIn("2026-05-20", out)
+        self.assertIn("desc", out)
+
+    def test_escapes_html_in_titles(self):
+        groups = {
+            "alpha": [
+                {"title": "<script>", "description": None, "project": "alpha",
+                 "href": "projects/alpha/x.html", "updated": None},
+            ]
+        }
+        out = render_index(groups)
+        self.assertNotIn("<script>", out)
+        self.assertIn("&lt;script&gt;", out)
+
+    def test_empty_groups_show_placeholder(self):
+        out = render_index({})
+        self.assertIn("尚無內容", out)
 
 
 if __name__ == "__main__":

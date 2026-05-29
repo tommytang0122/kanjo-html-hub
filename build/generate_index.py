@@ -1,5 +1,6 @@
 """Generate the kanjo-html-hub index page from files under projects/."""
 
+import html
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
@@ -90,3 +91,50 @@ def collect_entries(projects_dir):
     for items in groups.values():
         items.sort(key=lambda e: (e["updated"] or ""), reverse=True)
     return dict(sorted(groups.items()))
+
+
+_PAGE_TEMPLATE = """<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>kanjo-html-hub</title>
+<link rel="stylesheet" href="assets/index.css">
+</head>
+<body>
+<main>
+<h1>kanjo-html-hub</h1>
+{body}
+</main>
+</body>
+</html>
+"""
+
+
+def render_index(groups):
+    """Render the full index page HTML from grouped entries."""
+    esc = html.escape
+    if not groups:
+        body = '<p class="empty">尚無內容</p>'
+    else:
+        sections = []
+        for project, items in groups.items():
+            rows = []
+            for entry in items:
+                meta = []
+                if entry["description"]:
+                    meta.append(f'<span class="desc">{esc(entry["description"])}</span>')
+                if entry["updated"]:
+                    meta.append(f'<span class="date">{esc(entry["updated"])}</span>')
+                meta_html = "".join(meta)
+                rows.append(
+                    f'<li><a href="{esc(entry["href"])}">{esc(entry["title"])}</a>'
+                    f"{meta_html}</li>"
+                )
+            sections.append(
+                f'<section><h2>{esc(project)}</h2>\n<ul>\n'
+                + "\n".join(rows)
+                + "\n</ul></section>"
+            )
+        body = "\n".join(sections)
+    return _PAGE_TEMPLATE.format(body=body)
