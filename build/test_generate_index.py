@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from generate_index import parse_head, git_last_modified
+from generate_index import parse_head, git_last_modified, collect_entries
 
 
 class ParseHeadTests(unittest.TestCase):
@@ -56,6 +56,33 @@ class GitLastModifiedTests(unittest.TestCase):
             f = repo / "b.html"
             f.write_text("<title>x</title>")
             self.assertIsNone(git_last_modified(f))
+
+
+class CollectEntriesTests(unittest.TestCase):
+    def _write(self, base, rel, body):
+        path = base / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+        return path
+
+    def test_groups_by_top_level_folder_and_falls_back_to_filename(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            projects = Path(tmp) / "projects"
+            self._write(projects, "alpha/spec.html", "<head><title>Spec A</title></head>")
+            self._write(projects, "alpha/nested/deep.html", "<head></head>")
+            self._write(projects, "beta/report.html", "<head><title>Report B</title></head>")
+
+            groups = collect_entries(projects)
+
+            self.assertEqual(list(groups.keys()), ["alpha", "beta"])
+            titles = {e["title"] for e in groups["alpha"]}
+            self.assertEqual(titles, {"Spec A", "deep"})  # deep.html has no title
+            href = groups["beta"][0]["href"]
+            self.assertEqual(href, "projects/beta/report.html")
+
+    def test_missing_projects_dir_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(collect_entries(Path(tmp) / "projects"), {})
 
 
 if __name__ == "__main__":
