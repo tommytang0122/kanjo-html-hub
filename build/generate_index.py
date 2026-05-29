@@ -1,6 +1,7 @@
 """Generate the kanjo-html-hub index page from files under projects/."""
 
 import html
+import shutil
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
@@ -138,3 +139,27 @@ def render_index(groups):
             )
         body = "\n".join(sections)
     return _PAGE_TEMPLATE.format(body=body)
+
+
+def build(root, out_dir):
+    """Generate out_dir: a copy of projects/ + assets/ plus a fresh index.html."""
+    projects_dir = root / "projects"
+    groups = collect_entries(projects_dir)
+
+    if out_dir.exists():
+        shutil.rmtree(out_dir)
+    out_dir.mkdir(parents=True)
+
+    if projects_dir.is_dir():
+        shutil.copytree(projects_dir, out_dir / "projects")
+    assets_dir = root / "assets"
+    if assets_dir.is_dir():
+        shutil.copytree(assets_dir, out_dir / "assets")
+
+    (out_dir / "index.html").write_text(render_index(groups), encoding="utf-8")
+
+
+if __name__ == "__main__":
+    repo_root = Path(__file__).resolve().parent.parent
+    build(repo_root, repo_root / "_site")
+    print("Built _site/")

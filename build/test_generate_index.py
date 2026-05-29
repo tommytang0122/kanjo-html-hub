@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from generate_index import parse_head, git_last_modified, collect_entries, render_index
+from generate_index import parse_head, git_last_modified, collect_entries, render_index, build
 
 
 class ParseHeadTests(unittest.TestCase):
@@ -114,6 +114,39 @@ class RenderIndexTests(unittest.TestCase):
     def test_empty_groups_show_placeholder(self):
         out = render_index({})
         self.assertIn("尚無內容", out)
+
+
+class BuildTests(unittest.TestCase):
+    def test_build_copies_projects_and_assets_and_writes_index(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "projects" / "alpha").mkdir(parents=True)
+            (root / "projects" / "alpha" / "spec.html").write_text(
+                "<head><title>Spec A</title></head>", encoding="utf-8"
+            )
+            (root / "assets").mkdir()
+            (root / "assets" / "index.css").write_text("body{}", encoding="utf-8")
+            out = root / "_site"
+
+            build(root, out)
+
+            self.assertTrue((out / "index.html").exists())
+            self.assertTrue((out / "projects" / "alpha" / "spec.html").exists())
+            self.assertTrue((out / "assets" / "index.css").exists())
+            self.assertIn("Spec A", (out / "index.html").read_text(encoding="utf-8"))
+
+    def test_build_overwrites_existing_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "projects").mkdir()
+            out = root / "_site"
+            out.mkdir()
+            (out / "stale.txt").write_text("old", encoding="utf-8")
+
+            build(root, out)
+
+            self.assertFalse((out / "stale.txt").exists())
+            self.assertTrue((out / "index.html").exists())
 
 
 if __name__ == "__main__":
