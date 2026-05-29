@@ -5,6 +5,7 @@ import shutil
 import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import quote
 
 
 class _StopParsing(Exception):
@@ -71,7 +72,8 @@ def make_entry(html_path, projects_dir):
     title, description = parse_head(text)
     if not title:
         title = html_path.stem
-    href = html_path.relative_to(projects_dir.parent).as_posix()
+    rel_path = html_path.relative_to(projects_dir.parent).as_posix()
+    href = quote(rel_path)
     project = html_path.relative_to(projects_dir).parts[0]
     return {
         "title": title,

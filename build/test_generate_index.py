@@ -84,6 +84,15 @@ class CollectEntriesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(collect_entries(Path(tmp) / "projects"), {})
 
+    def test_href_is_url_encoded_for_reserved_chars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            projects = Path(tmp) / "projects"
+            self._write(projects, "demo/a b & c.html", "<head><title>X</title></head>")
+            groups = collect_entries(projects)
+            href = groups["demo"][0]["href"]
+            self.assertEqual(href, "projects/demo/a%20b%20%26%20c.html")
+            self.assertNotIn(" ", href)
+
 
 class RenderIndexTests(unittest.TestCase):
     def test_renders_project_sections_and_links(self):
