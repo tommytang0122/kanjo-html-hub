@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI 設計武器樹的哲學</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#151b22; --panel-2:#1c232c; --line:#2b3542;
+    --text:#e7eef6; --muted:#9aa8b7; --faint:#6f7d8c; --accent:#7dd3fc;
+    --green:#74d99f; --yellow:#f5cf65; --orange:#fb923c; --red:#fb7185;
+    --purple:#c4a7ff; --blue:#93c5fd; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif; }
+  a { color:var(--accent); text-decoration:none; }
+  code, pre { font-family:var(--mono); }
+  pre { overflow:auto; background:#0b1117; border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .shell { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+  nav { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 18px; border-right:1px solid var(--line); background:#111820; }
+  nav h1 { font-size:18px; margin:0 0 6px; }
+  nav .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+  nav a { display:block; padding:7px 9px; border-radius:6px; color:var(--muted); }
+  nav a.active, nav a:hover { background:#1f2a35; color:var(--text); }
+  main { max-width:1280px; padding:30px 44px 64px; }
+  header { margin-bottom:26px; }
+  header h1 { margin:0 0 6px; font-size:30px; color:var(--accent); }
+  header p { margin:0; color:var(--muted); }
+  section { margin:32px 0; }
+  h2 { margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); font-size:22px; }
+  h3 { margin:22px 0 10px; font-size:16px; color:var(--yellow); }
+  .lede { color:var(--muted); max-width:980px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .grid.wide { grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .card.disabled { opacity:.62; border-style:dashed; }
+  .card.pending { border-style:dashed; border-color:#596579; }
+  .card.artifact { border-color:#5b456d; background:#181922; }
+  .head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }
+  .name { font-weight:700; }
+  .id { color:var(--faint); font-family:var(--mono); font-size:11px; overflow-wrap:anywhere; text-align:right; }
+  .desc { color:var(--muted); margin:6px 0 10px; }
+  .row { margin:7px 0; color:var(--muted); }
+  .label { display:inline-block; min-width:70px; color:var(--faint); font-size:12px; text-transform:uppercase; letter-spacing:.02em; }
+  .tag { display:inline-block; margin:2px 4px 2px 0; padding:2px 7px; border-radius:999px; font-family:var(--mono); font-size:12px; background:#233040; color:#d6e4f2; }
+  .shape { background:#17324a; color:#93c5fd; } .material { background:#3a2b18; color:#f4d18a; }
+  .wrap { background:#2c2f36; color:#cbd5e1; } .edge { background:#3a1d24; color:#fda4af; }
+  .form { background:#25321d; color:#bbf7d0; } .special { background:#342044; color:#d8b4fe; }
+  .signature { background:#2d2856; color:#c7d2fe; } .element { background:#1f3142; color:#7dd3fc; }
+  .effect { background:#3a2a14; color:#fde68a; } .physical { background:#26313d; color:#cbd5e1; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:16px 0; }
+  .stat { background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .stat .k { color:var(--muted); font-size:12px; } .stat .v { font-size:24px; font-weight:700; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; }
+  th, td { border:1px solid var(--line); padding:9px 10px; vertical-align:top; }
+  th { background:#19222b; text-align:left; color:var(--text); }
+  td { color:var(--muted); }
+  .note { border-left:4px solid var(--accent); background:#12202a; padding:12px 14px; border-radius:8px; color:var(--muted); }
+  .warn { border-left-color:var(--yellow); background:#251f12; }
+  .ok { color:var(--green); } .off { color:var(--red); } .small { font-size:12px; color:var(--faint); }
+  @media (max-width: 760px) { .shell { display:block; } nav { position:relative; height:auto; } main { padding:22px 18px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav>
+  <h1>Stick Survivor</h1>
+  <div class="sub">設計原則 · 2026-05-21</div>
+  <a href="game-data.html" class="">Database</a>
+<a href="weapon-tree.html" class="">Weapon Tree</a>
+<a href="design-philosophy.html" class="active">Design Philosophy</a>
+<a href="#boundary" class="">Boundary</a>
+<a href="#s3" class="">Top-down</a>
+<a href="#s4" class="">Bottom-up</a>
+<a href="#ai-workflow" class="">AI Workflow</a>
+</nav>
+<main>
+<header>
+  <h1>AI 設計武器樹的哲學</h1>
+  <p>設計原則 · 2026-05-21</p>
+</header>
+<section id="boundary"><h2>頁面邊界</h2><div class="note">本頁只回答「怎麼設計」：原則、決策樹、AI workflow 與陷阱。它不列完整資料庫，也不盤點目前所有路線；那些分別屬於 game-data.html 與 weapon-tree.html。</div></section>
+<section id="s1"><h2>核心原則</h2><p>神器是<strong>故事歸宿</strong>——是設計的「答案」，先有答案才能反推路徑。</p>
+<p>Mechanic 是<strong>工程素材</strong>——素材要小、紮實、可組合，才能撐起多個不同神器。</p>
+<p>路徑（modifier / talent 觸發條件）在中間 <strong>meet-in-the-middle</strong>，從兩端收斂。</p></section>
+<section id="s2"><h2>三層結構</h2><p>玩家在一場 run 中操作的是<strong>一把</strong>不斷演化的武器，演化過程涉及三層內容：</p>
+<table>
+<thead><tr><th>層</th><th>觸發點</th><th>玩家感受</th><th>內容設計方向</th><th>Plan 3 範例</th></tr></thead>
+<tbody>
+<tr><td><strong>Base 武器</strong></td><td>Lv 1-9 random modifier 3 選 1</td><td>「我的武器在慢慢成形」</td><td>Bottom-up — 軸結構正交、可堆疊</td><td>木棍 → 鐵棍 → 鐵鎚</td></tr>
+<tr><td><strong>核心被動 keystone</strong></td><td>Lv 5 / 15 / 25</td><td>「我做了一個 build-defining 決策」</td><td>Top-down — PoE tier 取捨/觸發/最終 mult</td><td>餘燼蔓延 / 流順之風 / 狂戰士</td></tr>
+<tr><td><strong>神器天賦 talent</strong></td><td>milestone 後段</td><td>「我的武器變了個東西」</td><td>Top-down — 視覺/機制大轉變</td><td>火焰附身 → 火焰巨人錘形態 → 火焰巨人錘</td></tr>
+</tbody></table>
+<p>三層各有專屬職責，互不重疊：</p>
+<ul>
+<li><strong>Base 武器</strong>是建造塊：用 modifier 堆出 shape × material × form 的組合，archetype detection 給每個 cell 一個顯示名稱。<em>內容上限</em>：4 base × 2 material × N shape = 4-8 個基礎 archetype。</li>
+<li><strong>核心被動</strong>是「Build flavor」決策：玩家走毒系？火系？暴擊流？最終 multiplier 流？三次選擇定下 run 的個性。<em>內容上限</em>：要夠多 keystone 才能讓三次選擇有意義（建議 ≥ 8 個成熟內容池）。</li>
+<li><strong>神器天賦</strong>是「形態突變」儀式：每次選擇都看得到武器外型/hitbox 有大改變。<em>內容上限</em>：每個 base family 至少 1 條神器路徑（最終目標 4 family × 2-3 路徑 = 8-12 個 artifact archetype）。</li>
+</ul>
+<hr></section>
+<section id="s3"><h2>Top-down</h2><p><strong>適用場景</strong>：設計新神器（archetype）、新 keystone、新 talent。</p>
+<ul>
+<li>玩家「終局體驗」優先</li>
+<li>視覺與機制的高潮優先</li>
+<li>反推所需 tag / stat / 觸發條件</li>
+</ul>
+<p><strong>不適用場景</strong>：底層 mechanic、stat pipeline、event hook、refactor 既有系統。</p>
+<ul>
+<li>這些需要 bottom-up</li>
+<li>從重用性、composability 反推</li>
+<li>不要為單一神器寫死</li>
+</ul>
+<h3>Top-down 三步驟</h3>
+<ol>
+<li><strong>畫終形</strong>：先寫神器的 archetype 定義（名稱、flavour、視覺、stat 大改、tag 需求）。</li>
+</ol>
+<p>   ```</p>
+<p>   id: archetype_fire_giant_hammer</p>
+<p>   display_name: 火焰巨人錘</p>
+<p>   flavor: 金屬長柄錘燃成熔爐，每次重擊推出三段震波。</p>
+<p>   match: [#長兵, #金屬製, #打擊, #重擊, #火, #火焰巨人錘]</p>
+<p>   unique mechanic:</p>
+<p>     shockwave_3phase</p>
+<p>     radii 120 / 200 / 300</p>
+<p>     damage ×1.5 / ×1.0 / ×0.6</p>
+<p>   ```</p>
+<ol>
+<li><strong>反推所需 tag</strong>：archetype match 需要哪些 tag？哪些是 base family 自帶（<code>#打擊 #重擊</code>），哪些需要元素（<code>#火</code>），哪些需要神器簽名 tag（<code>#火焰巨人錘</code>）？</li>
+<li><strong>反推 talent 內容</strong>：誰來授予這個 special tag？怎麼授予（inline synthetic mod / 直接 grant）？對應的 talent 要如何 fit 進現有 milestone pool？</li>
+</ol>
+<h3>Keystone 的 top-down 三型</h3>
+<p>核心被動 keystone 是 PoE-tier 設計，不是純屬性 buff。用三種 archetype 風味驅動設計：</p>
+<ul>
+<li><strong>取捨型</strong>：放棄 A 換爆 B。例：狂戰士（傷害 ×1.5 但受傷 ×1.5）。玩家感受「我選擇了極端」。</li>
+<li><strong>條件觸發型</strong>：滿足前置 mechanic 後爆發新行為。例：餘燼蔓延（點燃敵死亡時擴散）、暴擊連鎖（暴擊後 1.5s 必爆）。玩家感受「我啟動了一個新規則」。</li>
+<li><strong>最終 multiplier 型</strong>：所有 stack 後再乘一次。例：流順之風（攻速/移速 ×1.25）。玩家感受「我繞過了 stack decay」。</li>
+</ul>
+<p>&gt; <strong>反模式</strong>：「攻擊速度 +15%」「最大生命 +20」這種<strong>純屬性 buff</strong>不應該放進核心被動 pool。它們屬於 Lv 1-9 random modifier pool 的職責。核心被動每一格都應該是一個「我能跟朋友講」的決策——「我這場選了餘燼蔓延，火焰擴散爽炸」遠勝「我選了 +15% 攻速」。</p>
+<hr></section>
+<section id="s4"><h2>Bottom-up</h2><p><strong>適用場景</strong>：底層系統設計、refactor、新 event hook、stat pipeline 擴展。</p>
+<ul>
+<li>重用性 &gt; 單一場景</li>
+<li>API 簡單、小、composable</li>
+<li>多個 keystone 共用</li>
+</ul>
+<p><strong>不適用場景</strong>：內容（神器、keystone、talent）的設計。</p>
+<ul>
+<li>內容需要 top-down「先有答案」</li>
+<li>bottom-up 容易設計出「可組合但沒人用」的素材</li>
+</ul>
+<h3>Bottom-up 三步驟</h3>
+<ol>
+<li><strong>從多個 top-down 需求倒推共同 primitive</strong>：餘燼蔓延需要 <code>on_enemy_died</code> event；暴擊連鎖需要 <code>on_attack_resolved(is_crit)</code> event；都需要 weapon → keystone 的事件管道。<br>→ primitive: weapon 加 <code>attack_resolved</code> signal + EnemyBase.died(snapshot) extended signal。</li>
+<li><strong>檢查「能不能 abstract 成可重用的 hook」</strong>：餘燼蔓延的 spread API 不能寫死「只給火用」——要設計成 <code>spread_status_in_radius(status_id, radius, max_n)</code>，未來毒擴散、雷擴散都能用同一個 API。</li>
+<li><strong>實作最小可行版本，先讓一個 top-down 需求跑通</strong>：不要為了「將來可能有的 4 種 element」寫一個 generic StatusSystem class。先讓 ignite 用<em>最簡單</em>的方式跑通（reuse 既有 apply_dot），需求變多時再 abstract。</li>
+</ol>
+<h3>Plan 3 的 bottom-up 戰利品</h3>
+<table>
+<thead><tr><th>Primitive</th><th>誰用它</th><th>未來可重用</th></tr></thead>
+<tbody>
+<tr><td><code>mul_final</code> stat op</td><td>流順之風、狂戰士、巨化神器化、鎚的精通</td><td>任何「最終結算再乘一次」的 keystone / talent</td></tr>
+<tr><td><code>EnemyBase.died(self, snapshot)</code></td><td>餘燼蔓延（讀 snapshot.was_ignited）</td><td>任何 on-kill keystone（屍爆、收割、reset cooldown）</td></tr>
+<tr><td><code>Weapon.attack_resolved(target, dmg, is_crit)</code></td><td>暴擊連鎖（讀 is_crit）</td><td>on-hit / on-crit keystone（吸血、額外擊、暴擊堆疊）</td></tr>
+<tr><td><code>Player.force_crit_until_msec / crit_multiplier_override / next_attack_force_crit</code></td><td>暴擊連鎖、致命一擊</td><td>任何 keystone 想要 override Weapon._resolve_is_crit</td></tr>
+<tr><td><code>EnemyBase.apply_ignite / apply_chill / apply_shock / apply_poison / apply_bleed</code></td><td>元素 grant talents + 對應 keystone（餘燼蔓延 / 碎冰 / 高壓電 / 毒物大師 / 爆血）</td><td>StatusSystem 抽象化 review（TODO-003）與後續元素 / 追蹤 / 光環</td></tr>
+</tbody></table>
+<hr></section>
+<section id="s5"><h2>Meet-in-the-middle</h2><p>Top-down 從「神器」推下來，bottom-up 從「primitive」推上去。中間是「玩家從木棍走到神器」的路徑——這條路徑由 random modifier + talent + keystone 共同組成。設計時兩端逼近：</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────┐
+│   Top-down 神器：火焰巨人錘 [#長兵 #金屬製 #打擊 #重擊 #火 #火焰巨人錘] │
+│                              ▲                                  │
+│                              │ 反推: 缺神器簽名 tag             │
+│                              │                                  │
+│              ┌───────────────┴───────────────┐                  │
+│              │ talent_grant_fire_giant_hammer│ ← top-down 設計  │
+│              │ 授予簽名 tag + shockwave 行為 │                  │
+│              └───────────────────────────────┘                  │
+│                              ▲                                  │
+│                              │ Lv 20 milestone roll             │
+│                              │                                  │
+│              ┌───────────────┴───────────────┐                  │
+│              │ Lv 1-9: random modifier 路徑  │                  │
+│              │ + Lv 10/15 milestone pre-req  │                  │
+│              └───────────────────────────────┘                  │
+│                              ▲                                  │
+│                              │                                  │
+│   Bottom-up primitive: modifier system / archetype detector     │
+│                       milestone pool / mul_final / signals      │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+<p>路徑設計的兩個方向逼近原則：</p>
+<ol>
+<li><strong>Top-down 端</strong>：寫好神器後，列出所有需要的 tag。每個 special tag 對應一個 talent；每個 base tag 應該已經被 modifier pool 涵蓋。</li>
+<li><strong>Bottom-up 端</strong>：random modifier pool 已存在的內容（金屬化、加長、重塊...）能組合出哪些 base archetype？哪些 cell 還缺？補相應 modifier。</li>
+<li><strong>對接點</strong>：milestone pool 的 affinity 機制是橋樑。Lv 10 拿了烈焰附身 → 武器有 #火 → Lv 15 keystone roll 時餘燼蔓延 affinity 命中 → 玩家自然走進「火焰 build」。</li>
+</ol>
+<hr></section>
+<section id="s6"><h2>設計決策</h2><p>Plan 4+ 設計新內容時，依下圖決定走 top-down 還是 bottom-up：</p>
+<pre><code>                    ┌─────────────────────────────┐
+                    │   我要設計什麼？             │
+                    └──────────────┬──────────────┘
+                                   │
+        ┌──────────────────────────┼──────────────────────────┐
+        ▼                          ▼                          ▼
+  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+  │  神器        │         │  Keystone    │         │  底層 mech   │
+  │  / talent    │         │              │         │  / event hook│
+  └──────┬───────┘         └──────┬───────┘         └──────┬───────┘
+         │                        │                        │
+         ▼                        ▼                        ▼
+  ┌──────────────┐         ┌──────────────┐         ┌──────────────┐
+  │  Top-down    │         │  Top-down    │         │  Bottom-up   │
+  │  從玩家爽感   │         │  從三型決策   │         │  從多個 top  │
+  │  反推 tag    │         │  反推 trigger│         │  -down 共用  │
+  └──────────────┘         └──────────────┘         └──────────────┘
+         │                        │                        │
+         └────────────┬───────────┴────────────┬───────────┘
+                      ▼                        ▼
+              ┌─────────────────────────────────────┐
+              │ Meet-in-the-middle: 路徑接得起來？  │
+              │ - random modifier 能堆到所需 tag？  │
+              │ - milestone pool 有對應 talent？    │
+              │ - 既有 primitive 夠用 / 要新加？    │
+              └─────────────────────────────────────┘</code></pre>
+<h3>具體 checklist：設計新神器（archetype）</h3>
+<ol>
+<li>寫 flavour + 視覺描述（top-down 起點）</li>
+<li>列 archetype match tags（哪些 base / 哪些 special）</li>
+<li>每個 special tag — 對應的 talent 已存在？沒有就新增</li>
+<li>每個 base tag — random modifier pool 能堆出來？沒有就補 modifier</li>
+<li>所需 stat 改變 — 既有 mul / mul_final / set 夠用？需新增 stat 就在 axes-schema 加</li>
+<li>新增 archetype 到 archetypes.json + 同步 weapon-tree.html（AGENTS.md 規定）</li>
+<li>加 archetype detection 整合測試</li>
+</ol>
+<h3>具體 checklist：設計新 keystone</h3>
+<ol>
+<li>選一個 keystone 風味（取捨 / 條件觸發 / 最終 mult）</li>
+<li>寫 flavour + 一句話描述（玩家拿到的爽感）</li>
+<li>列觸發條件 — 既有 hook (attack_resolved / died.snapshot / tick) 夠用？沒有就加</li>
+<li>列 affinity tags — 跟哪些 weapon tag 共鳴？（影響 saving throw 命中）</li>
+<li>寫 GDScript class extending KeystoneBase</li>
+<li>加進 milestone_keystones.json + MilestoneApplier.KEYSTONE_REGISTRY</li>
+<li>加 unit test</li>
+</ol>
+<h3>具體 checklist：設計新底層 mechanic</h3>
+<ol>
+<li>找出 2+ 個 top-down 內容需求都需要這個 mechanic（&lt; 2 就不要做）</li>
+<li>定義 API — 名字、參數、副作用，盡可能 small + composable</li>
+<li>不要為單一神器寫死。問自己：「下一個 element / 下一個 keystone 會用嗎？」</li>
+<li>實作 + 寫至少 1 個 consumer 的 demo 才能 commit</li>
+<li>更新本文檔，把 primitive 加進「bottom-up 戰利品」表</li>
+</ol>
+<hr></section>
+<section id="s7"><h2>常見陷阱</h2><h3>陷阱 1: keystone 為單一機制寫死</h3>
+<p>餘燼蔓延的「spread」邏輯如果寫成「只給火用」，未來毒擴散就要再寫一份。正確做法：把 spread API 設計成 <code>spread_status_in_radius(status_id, radius, max_n)</code>，keystone 只 declare「我要傳 status X」，spread 怎麼找目標是共用的。<strong>目前 Plan 4B 仍是 ad-hoc per-status implementation</strong>：burn / ice / poison / blood 各自有清楚的最小路徑，避免過早抽象。五個 status 上線後，TODO-003 才是評估共用 StatusSystem / spread primitive 的時機。</p>
+<h3>陷阱 2: 過早抽象 generic StatusSystem</h3>
+<p>Spec 原本想做 generic <code>EnemyBase.statuses: Dict[StatusId, StatusInstance]</code> 容器。Plan 3 只有 ignite 一個 status——抽象出來反而 over-engineering。實作時降級為 <code>_ignited_remaining: float</code> flag + reuse DOT pipeline。Plan 4B 已擴到 chill / shock / poison / bleed，但仍先用 ad-hoc API ship 完整 gameplay path。<strong>原則</strong>：第一個需求 ad-hoc；第二個以上需求出現時先累積對比樣本，再用實際重複形狀抽象，而不是預先發明通用容器。</p>
+<h3>陷阱 3: milestone pool 把純屬性 buff 跟 keystone 混在一起</h3>
+<p>如果 Lv 5 keystone 池有「攻速 +15%」也有「餘燼蔓延」，純屬性會稀釋決策感。Lv 1-9 random modifier 才是純屬性的家。<strong>Plan 3 設計</strong>：keystone pool 5 個都是 PoE-tier 取捨/觸發/最終 mult，沒有純數值。</p>
+<h3>陷阱 4: 神器 archetype 沒有明確標示適用路徑</h3>
+<p>神器不是「任何武器拿到一個酷 tag 就應該成功」。每個神器都要明確標示適用路徑：需要哪個 shape、material、edge/form、element，以及哪個 signature tag。若路徑沒有寫清楚，玩家會以為自己能轉職，實際上 archetype detection fail。<strong>教訓</strong>：top-down 設計神器時，要明確標示「適用 base」與 signature tag；相鄰 family 若也應該有終形，就另外設計專屬神器，而不是讓一個神器模糊套用。</p>
+<h3>陷阱 5: signal 擴充 arity 沒同步 callers</h3>
+<p>Plan 3 把 <code>EnemyBase.died(self_ref)</code> 改為 <code>died(self_ref, snapshot)</code>。Godot 對 lambda <code>func(_e):</code> 強制 arity match，舊 callers 會 silent fail。<strong>原則</strong>：改 signal arity 時 grep 所有 callers 一起改。Plan 3 main.gd:128 是唯一既有 caller，已同步。</p>
+<h3>陷阱 6: 新 class 用 class_name 全域註冊</h3>
+<p>Godot 4 headless 模式對<strong>新加</strong>的 class_name 全域註冊有延遲。Plan 3 為此踩了 3 次 parse error。</p>
+<p><strong>解法</strong>：新 class 用 <code>extends RefCounted</code> 或 <code>extends Node</code> 不加 class_name；其他檔案用 <code>preload(&quot;res://path/to/class.gd&quot;)</code> 引用。</p>
+<h3>陷阱 7: 材質 ecosystem 不對稱（Plan 4 grill #17）</h3>
+<p>設計三材質時若每個材質帶的「機制負擔」不一樣，會造成 ecosystem 嚴重失衡。Plan 4 grill 期間發現：</p>
+<p><strong>骨製</strong>自帶 #流血 (auto-DOT on hit) + 一個 keystone (爆血) = 1 keystone-worth；</p>
+<p><strong>結晶</strong>只有「元素 ×1.5」的 multiplier，沒有自己的 keystone family（共用 4 個元素 keystone）；</p>
+<p><strong>金屬</strong>純物理 power，沒 keystone。</p>
+<p>這讓骨製感覺「自帶完整 build」而結晶/金屬感覺「只是 stat 修飾」。</p>
+<p><strong>教訓</strong>：每個材質定 ecosystem 時要對齊「附帶機制深度」——可用 talent/keystone 數量、或 stack path 數量計算對稱性。Plan 4B 補上 2 個骨製友善 talents (<code>talent_bone_spike</code>, <code>talent_bleed_amp</code>) 部分補償，但底層 asymmetry 仍在。下一輪內容 (Plan 5+) 設計新材質時要先 audit ecosystem，再寫 spec。</p>
+<h3>陷阱 8: chain demo N=1 — AI extrapolation fragile（Plan 4 grill #17）</h3>
+<p>Plan 4 的法杖 vertical slice 是唯一的 chain demo (<code>#短小 → #投射物 → #環繞</code>)。當 chain endpoint 只有一個範例時：</p>
+<ul>
+<li>AI 看到 N=1 不知道哪些屬性是 chain pattern 本質、哪些是這一個 archetype 的偶然細節</li>
+<li><code>/design-weapons</code> skill 用 1 個 template 生 chain-end 候選，傾向過擬合到法杖的具體 stat / flavor / form 組合</li>
+<li>設計師複用 chain 機制時也容易把法杖的偶然約束（必須結晶？必須短小？必須元素？）當成 chain 通則</li>
+</ul>
+<p><strong>教訓</strong>：chain endpoint 屬於「需要 N≥2 對比範例才能設計穩定」的內容類別。Plan 4 ship 完整 8 specials 後，TODO-003 排上 #光環 / #追蹤 form 設計，把 chain demo 推到 N=3，再啟動 AI extrapolation。</p>
+<p>在那之前，AI 生 chain-end 候選時 prompt 要明確標記「chain pattern fragile, N=1」，並要求 G4 human review 特別關注 chain 屬性的歸納。</p>
+<hr></section>
+<section id="ai-workflow"><h2>AI 設計工作流摘要</h2><div class="grid wide">
+<div class="card"><div class="head"><span class="name">先選設計方向</span></div><div class="desc">神器與 keystone 走 top-down；底層 mechanic 走 bottom-up。不要把兩種思路混在同一張表裡。</div></div>
+<div class="card"><div class="head"><span class="name">Method T</span></div><div class="desc">要補 archetype 矩陣時，先定 slot，再填內容。AI 的任務是填格，不是自由發散。</div></div>
+<div class="card"><div class="head"><span class="name">檢查路徑</span></div><div class="desc">每個神器都要能從 base tags、talents、milestone slot 接起來；接不起來就是設計還沒完成。</div></div>
+<div class="card"><div class="head"><span class="name">同步文件</span></div><div class="desc">哲學寫在 MD；資料庫由 JSON 生成；武器樹只呈現目前實作路線。</div></div>
+</div></section>
+<p class="small">Designer-facing rendering derived from docs/design/design-philosophy.md. Current data inventory intentionally lives outside this page.</p>
+</main>
+</div>
+</body>
+</html>
