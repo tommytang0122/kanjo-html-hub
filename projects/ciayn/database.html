@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>遊戲資料庫</title>
+<style>
+  :root {
+    --bg:#0f1419; --panel:#151b22; --panel-2:#1c232c; --line:#2b3542;
+    --text:#e7eef6; --muted:#9aa8b7; --faint:#6f7d8c; --accent:#7dd3fc;
+    --green:#74d99f; --yellow:#f5cf65; --orange:#fb923c; --red:#fb7185;
+    --purple:#c4a7ff; --blue:#93c5fd; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif; }
+  a { color:var(--accent); text-decoration:none; }
+  code { font-family:var(--mono); font-size:12px; color:#bcd3e8; }
+  .shell { display:grid; grid-template-columns:240px 1fr; min-height:100vh; }
+  nav.side { position:sticky; top:0; height:100vh; overflow:auto; padding:24px 18px; border-right:1px solid var(--line); background:#111820; }
+  nav.side h1 { font-size:18px; margin:0 0 6px; }
+  nav.side .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+  nav.side a { display:block; padding:7px 9px; border-radius:6px; color:var(--muted); }
+  nav.side a.active, nav.side a:hover { background:#1f2a35; color:var(--text); }
+  nav.side .group { margin-top:14px; padding-top:10px; border-top:1px solid var(--line); font-size:11px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; }
+  main { max-width:1340px; padding:30px 44px 64px; min-width:0; }
+  header.page { margin-bottom:26px; }
+  header.page h1 { margin:0 0 6px; font-size:30px; color:var(--accent); }
+  header.page p { margin:0; color:var(--muted); }
+  section { margin:34px 0; }
+  h2 { margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line); font-size:22px; }
+  h3 { margin:22px 0 10px; font-size:16px; color:var(--yellow); }
+  h4 { margin:16px 0 8px; font-size:14px; color:var(--accent); }
+  .lede { color:var(--muted); max-width:1000px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+  .grid.wide { grid-template-columns:repeat(auto-fill,minmax(360px,1fr)); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .card.disabled { opacity:.55; border-style:dashed; }
+  .card.artifact { border-color:#5b456d; background:#181922; }
+  .card .head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:6px; }
+  .card .name { font-weight:700; }
+  .card .id { color:var(--faint); font-family:var(--mono); font-size:11px; overflow-wrap:anywhere; text-align:right; }
+  .desc { color:var(--muted); margin:6px 0 8px; }
+  .row { margin:6px 0; color:var(--muted); font-size:13px; }
+  .label { display:inline-block; min-width:64px; color:var(--faint); font-size:11px; text-transform:uppercase; letter-spacing:.02em; }
+  .tag { display:inline-block; margin:2px 4px 2px 0; padding:2px 7px; border-radius:999px; font-family:var(--mono); font-size:12px; background:#233040; color:#d6e4f2; }
+  .tag.shape { background:#17324a; color:#93c5fd; } .tag.material { background:#3a2b18; color:#f4d18a; }
+  .tag.wrap { background:#2c2f36; color:#cbd5e1; } .tag.edge { background:#3a1d24; color:#fda4af; }
+  .tag.form { background:#25321d; color:#bbf7d0; } .tag.special { background:#342044; color:#d8b4fe; }
+  .tag.signature { background:#2d2856; color:#c7d2fe; } .tag.element { background:#1f3142; color:#7dd3fc; }
+  .tag.effect { background:#3a2a14; color:#fde68a; } .tag.physical { background:#26313d; color:#cbd5e1; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin:16px 0; }
+  .stat { background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:12px; }
+  .stat .k { color:var(--muted); font-size:12px; } .stat .v { font-size:24px; font-weight:700; color:var(--accent); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; }
+  th, td { border:1px solid var(--line); padding:8px 10px; vertical-align:top; text-align:left; }
+  th { background:#19222b; color:var(--text); white-space:nowrap; }
+  td { color:var(--muted); }
+  td.num { font-family:var(--mono); white-space:nowrap; }
+  .note { border-left:4px solid var(--accent); background:#12202a; padding:12px 14px; border-radius:8px; color:var(--muted); margin:12px 0; }
+  .warn { border-left-color:var(--yellow); background:#251f12; }
+  .ok { color:var(--green); } .off { color:var(--red); } .small { font-size:12px; color:var(--faint); }
+  .badge { display:inline-block; padding:1px 8px; border-radius:999px; font-size:11px; font-weight:700; font-family:var(--mono); }
+  .t0 { background:#26313d; color:#cbd5e1; } .t1 { background:#17324a; color:#93c5fd; }
+  .t2 { background:#25321d; color:#bbf7d0; } .t3 { background:#3a2044; color:#d8b4fe; }
+  .t4 { background:#3a2a14; color:#fde68a; } .t5 { background:#3a1d24; color:#fda4af; }
+  details { margin:10px 0; border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+  details summary { cursor:pointer; padding:10px 14px; color:var(--text); font-weight:600; }
+  details > div { padding:0 14px 12px; }
+  .prio { display:inline-block; padding:1px 8px; border-radius:4px; font-size:11px; font-weight:700; }
+  .p1 { background:#3a1d24; color:#fda4af; } .p2 { background:#3a2a14; color:#fde68a; } .p3 { background:#26313d; color:#cbd5e1; }
+  .have { color:var(--green); font-weight:700; } .miss { color:var(--red); font-weight:700; }
+  .thumb { background:#0b1117; border:1px solid var(--line); border-radius:8px; padding:8px; text-align:center; }
+  .thumb img { max-width:100%; max-height:110px; image-rendering:auto; }
+  .thumb .cap { font-size:11px; color:var(--muted); margin-top:6px; font-family:var(--mono); overflow-wrap:anywhere; }
+  .gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:10px; }
+  /* weapon tree */
+  .tree-line { display:flex; align-items:stretch; gap:0; overflow-x:auto; padding:14px 6px; }
+  .tnode { min-width:170px; max-width:230px; flex:0 0 auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .tnode.artifact { border-color:#7c5a96; background:#1b1626; box-shadow:0 0 14px rgba(196,167,255,.08); }
+  .tnode.component { border-color:#6b5a2e; background:#211c12; }
+  .tnode.blocked { border-style:dashed; opacity:.6; }
+  .tnode .nm { font-weight:700; margin:4px 0 6px; }
+  .tedge { flex:0 0 auto; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:0 10px; max-width:190px; }
+  .tedge .arrow { color:var(--faint); font-size:20px; line-height:1; }
+  .tedge .lbl { font-size:11px; color:var(--yellow); text-align:center; margin-top:4px; }
+  .tedge .lbl.mod { color:var(--blue); }
+  .fam-note { color:var(--muted); font-size:13px; margin:4px 0 10px; }
+  @media (max-width: 760px) { .shell { display:block; } nav.side { position:relative; height:auto; } main { padding:22px 18px; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="side">
+  <h1>Stick Survivor</h1>
+  <div class="sub">以實作 codebase 為準 · 2026-06-10</div>
+  <a href="database.html" class="active">Database 資料庫</a>
+<a href="weapon-tree.html" class="">Weapon Tree 進化路線</a>
+<a href="art-assets.html" class="">Art 美術需求</a>
+  <div class="group">本頁段落</div><a href="#overview">概覽</a>
+<a href="#player">玩家與基礎系統</a>
+<a href="#enemies">怪物</a>
+<a href="#baseweapon">初始武器</a>
+<a href="#tags">Tag 體系與軸</a>
+<a href="#modifiers">Modifiers</a>
+<a href="#archetypes">Archetypes</a>
+<a href="#components">T4/T5 Signatures</a>
+<a href="#talents">天賦與 Keystones</a>
+<a href="#effects">效果框架</a>
+</nav>
+<main>
+<header class="page">
+  <h1>遊戲資料庫</h1>
+  <p>所有 gameplay 內容與完整數值 · 以實作 codebase 為準 · 2026-06-10</p>
+</header>
+<section id="overview"><h2>概覽</h2>
+<p class="lede">本頁為 gameplay 內容總覽，全部數值直接取自 <code>data/*.json</code> 與 game code（player / enemies / weapon 等腳本），
+只列實際載入遊戲的內容（promoted / enabled），不含 pending / rejected。進化路線請看 weapon-tree.html，美術需求請看 art-assets.html。</p>
+<div class="stats">
+<div class="stat"><div class="k">archetypes (T0–T3)</div><div class="v">163</div></div>
+<div class="stat"><div class="k">T4/T5 signatures</div><div class="v">16</div></div>
+<div class="stat"><div class="k">modifiers</div><div class="v">22/28</div></div>
+<div class="stat"><div class="k">talents</div><div class="v">47/48</div></div>
+<div class="stat"><div class="k">keystones</div><div class="v">9</div></div>
+<div class="stat"><div class="k">tag families</div><div class="v">10</div></div>
+<div class="stat"><div class="k">tags</div><div class="v">45</div></div>
+<div class="stat"><div class="k">怪物</div><div class="v">3</div></div>
+</div></section>
+<section id="player"><h2>玩家與基礎系統</h2>
+<h3>玩家（player.gd）</h3>
+<table><tr><th>最大生命</th><th>移動速度</th><th>Dash 距離</th><th>Dash 時間</th><th>Dash 冷卻</th><th>Dash 無敵</th><th>基礎拾取半徑</th></tr>
+<tr><td class="num">150</td><td class="num">200 px/s</td><td class="num">200 px</td><td class="num">0.12 s</td><td class="num">2.0 s</td><td class="num">0.15 s</td><td class="num">160 px</td></tr></table>
+<p class="row">Dash（空白鍵）為全玩家通用能力，附 0.15 秒無敵幀與殘影軌跡；鎮獄迴旋棒的短旋推進復用同一套 dash（距離折半、不吃冷卻、不給無敵）。</p>
+<h3>經驗與升級</h3>
+<p class="row">XP 需求曲線：初始 4，每級 ×1.3 向上取整（<code>_xp_for_next = ceil(prev × 1.3)</code>）。經驗來源為怪物掉落的 XP 寶石（slime 2 / quick_claw 3 / ranger 4），受 <code>player.xp_gain_mul</code> 放大。</p>
+<table><tr><th>Lv→Lv+1</th><th>1→2</th><th>2→3</th><th>3→4</th><th>4→5</th><th>5→6</th><th>6→7</th><th>7→8</th><th>8→9</th><th>9→10</th><th>10→11</th><th>11→12</th><th>12→13</th><th>13→14</th><th>14→15</th><th>15→16</th></tr>
+<tr><td>需求 XP</td><td class='num'>4</td><td class='num'>6</td><td class='num'>8</td><td class='num'>11</td><td class='num'>15</td><td class='num'>20</td><td class='num'>26</td><td class='num'>34</td><td class='num'>45</td><td class='num'>59</td><td class='num'>77</td><td class='num'>101</td><td class='num'>132</td><td class='num'>172</td><td class='num'>224</td></tr></table>
+<p class="row">一般升級：從 modifier 池抽 3 選 1（權重 × 資格過濾）。里程碑等級跳過一般選單，改開 milestone 選單：</p>
+<table><tr><th>等級</th><th>類型</th><th>抽選池（bucket）</th></tr>
+<tr><td class="num">5</td><td>talent</td><td>A（形態/材質/體型 commit）</td></tr>
+<tr><td class="num">10</td><td>talent</td><td>A</td></tr>
+<tr><td class="num">15</td><td>talent</td><td>A + B3（通用強化）</td></tr>
+<tr><td class="num">20</td><td>talent</td><td>A + B3</td></tr>
+<tr><td class="num">25</td><td>talent</td><td>B1（元素附身）+ B2（物理強化）</td></tr>
+<tr><td class="num">30</td><td>mixed</td><td>keystone + B3</td></tr>
+<tr><td class="num">35</td><td>talent</td><td>B3</td></tr>
+<tr><td class="num">40</td><td>talent</td><td>D（神器形態）</td></tr></table>
+<div class="note">D bucket（神器/派生形態）天賦在 Lv 40 里程碑抽選，eligibility 由武器當下 tag 把關 —— 進化路線見 weapon-tree.html。</div>
+<h3>其他遊戲功能</h3>
+<div class="grid">
+<div class="card"><div class="head"><span class="name">圖鑑 Pokédex</span><span class="id">pokedex.gd</span></div><div class="desc">跨局進度：解鎖過的 archetype 顯示名稱與 match tags，未解鎖顯示 ???。含總數與各家族計數。</div></div>
+<div class="card"><div class="head"><span class="name">發現文字 Discovery</span><span class="id">archetype_detector.gd</span></div><div class="desc">武器 tag 變化命中更高 tier 的 archetype 時觸發 discovery_text 演出，寫入圖鑑。</div></div>
+<div class="card"><div class="head"><span class="name">局末統計</span><span class="id">end_run_ui.gd</span></div><div class="desc">死亡後顯示本局統計與選擇紀錄（run_stats）。</div></div>
+<div class="card"><div class="head"><span class="name">QA 作弊台</span><span class="id">cheat_console.gd</span></div><div class="desc">開發/QA 用：<code>art &lt;id&gt;</code> 一鍵組出神器 build（含完整 T3→T4→T5 前置鏈）等指令。</div></div>
+</div></section>
+<section id="enemies"><h2>怪物</h2>
+<table>
+<tr><th>怪物</th><th>HP</th><th>移速 (px/s)</th><th>接觸傷害</th><th>XP 掉落</th><th>行為</th></tr>
+<tr><td>史萊姆 slime</td><td class="num">8</td><td class="num">60</td><td class="num">3</td><td class="num">2</td><td>直線追擊。</td></tr>
+<tr><td>疾爪 quick_claw</td><td class="num">12</td><td class="num">140</td><td class="num">6</td><td class="num">3</td><td>高速直線追擊。</td></tr>
+<tr><td>遊俠 ranger</td><td class="num">10</td><td class="num">70</td><td class="num">4</td><td class="num">4</td><td>與玩家保持 300px 距離（±20 緩衝）；距離 &lt;600px 時每 2.5s 發射一發投射物（速度 250、存活 3s、傷害 = 接觸傷害 4）。</td></tr>
+</table>
+<p class="row">接觸傷害判定：距玩家 24px 內觸發（內建冷卻）。所有怪物可受擊退、減速、冰凍（完全停止移動與攻擊）、暈眩。</p>
+<h3>生成與難度曲線（enemy_spawner.gd / wave_manager.gd）</h3>
+<p class="row">基礎生成率 1.35 隻/秒 × 難度倍率 <code>1.2^分鐘</code>，於玩家周圍半徑 500px 生成。怪物種類權重隨時間變化：</p>
+<table><tr><th>分鐘</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>8</th><th>10</th></tr>
+<tr><td>生成率 (隻/s)</td><td class='num'>1.35</td><td class='num'>1.62</td><td class='num'>1.94</td><td class='num'>2.33</td><td class='num'>2.80</td><td class='num'>3.36</td><td class='num'>4.03</td><td class='num'>5.80</td><td class='num'>8.36</td></tr>
+<tr><td>slime</td><td class='num'>1.00</td><td class='num'>0.90</td><td class='num'>0.80</td><td class='num'>0.70</td><td class='num'>0.60</td><td class='num'>0.50</td><td class='num'>0.40</td><td class='num'>0.20</td><td class='num'>0.20</td></tr><tr><td>quick_claw</td><td class='num'>0.00</td><td class='num'>0.15</td><td class='num'>0.30</td><td class='num'>0.45</td><td class='num'>0.60</td><td class='num'>0.60</td><td class='num'>0.60</td><td class='num'>0.60</td><td class='num'>0.60</td></tr><tr><td>ranger</td><td class='num'>0.00</td><td class='num'>0.10</td><td class='num'>0.20</td><td class='num'>0.30</td><td class='num'>0.40</td><td class='num'>0.40</td><td class='num'>0.40</td><td class='num'>0.40</td><td class='num'>0.40</td></tr></table></section>
+<section id="baseweapon"><h2>初始武器</h2>
+<p class="row"><span class="label">初始 tags</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag shape">#中等</span><span class="small">（#中等 由 weapon_length=200 落在 shape band [160,250) 派生）</span></p>
+<p class="row">初始武器為「木棍」（T0 archetype）。完整 base stats（34 項）：</p>
+<details><summary>base_weapon.json 全部 34 項 stats</summary><div>
+<table><tr><th>stat</th><th>初始值</th></tr><tr><td><code>damage</code></td><td class='num'>6</td></tr><tr><td><code>weapon_length</code></td><td class='num'>200.0</td></tr><tr><td><code>swing_speed</code></td><td class='num'>1.25</td></tr><tr><td><code>swing_arc</code></td><td class='num'>1.7</td></tr><tr><td><code>swing_recovery</code></td><td class='num'>0.2</td></tr><tr><td><code>knockback</code></td><td class='num'>10.0</td></tr><tr><td><code>damage_type</code></td><td class='num'>physical</td></tr><tr><td><code>dot_dps</code></td><td class='num'>0</td></tr><tr><td><code>dot_duration</code></td><td class='num'>0</td></tr><tr><td><code>status_effect</code></td><td class='num'>none</td></tr><tr><td><code>crit_chance</code></td><td class='num'>0</td></tr><tr><td><code>pierce_count</code></td><td class='num'>0</td></tr><tr><td><code>attack_mode</code></td><td class='num'>swing</td></tr><tr><td><code>projectile_count</code></td><td class='num'>1</td></tr><tr><td><code>projectile_speed</code></td><td class='num'>600.0</td></tr><tr><td><code>projectile_lifetime</code></td><td class='num'>1.5</td></tr><tr><td><code>hitbox_scale</code></td><td class='num'>1.0</td></tr><tr><td><code>fire_pattern</code></td><td class='num'>forward</td></tr><tr><td><code>orbit_radius</code></td><td class='num'>0</td></tr><tr><td><code>orbit_speed</code></td><td class='num'>0</td></tr><tr><td><code>orbit_count</code></td><td class='num'>0</td></tr><tr><td><code>aura_radius</code></td><td class='num'>0</td></tr><tr><td><code>tick_rate</code></td><td class='num'>0</td></tr><tr><td><code>player.move_speed</code></td><td class='num'>1.0</td></tr><tr><td><code>player.attack_speed_mul</code></td><td class='num'>1.0</td></tr><tr><td><code>player.range_mul</code></td><td class='num'>1.0</td></tr><tr><td><code>player.projectile_count_mul</code></td><td class='num'>0</td></tr><tr><td><code>player.crit_chance</code></td><td class='num'>0</td></tr><tr><td><code>player.max_hp</code></td><td class='num'>0</td></tr><tr><td><code>player.xp_gain_mul</code></td><td class='num'>1.0</td></tr><tr><td><code>player.pickup_radius</code></td><td class='num'>160</td></tr><tr><td><code>element_damage_mul</code></td><td class='num'>1.0</td></tr><tr><td><code>physical_damage_mul</code></td><td class='num'>1.0</td></tr><tr><td><code>player.bleed_damage_mul</code></td><td class='num'>1.0</td></tr></table>
+</div></details>
+<h3>shape band（weapon_length → shape tag）</h3>
+<table><tr><th>#精密</th><th>#短小</th><th>#中等</th><th>#長兵</th><th>#巨大</th></tr>
+<tr><td class="num">&lt; 80</td><td class="num">80–160</td><td class="num">160–250</td><td class="num">250–400</td><td class="num">≥ 400</td></tr></table></section>
+<section id="tags"><h2>Tag 體系與軸</h2>
+<p class="lede">武器狀態 = 一組 tags + 數值 stats。tags 分 10 個 family；identity family 參與 archetype match 判定。
+modifier / talent 依 7 軸（axes-schema）授予 tag 與 stat 變化，軸與軸正交。</p>
+<div class="grid wide"><div class="card"><div class="head"><span class="name">shape</span><span class="id">identity · 5</span></div><div><span class="tag shape">#精密</span><span class="tag shape">#短小</span><span class="tag shape">#中等</span><span class="tag shape">#長兵</span><span class="tag shape">#巨大</span></div></div><div class="card"><div class="head"><span class="name">material</span><span class="id">identity · 4</span></div><div><span class="tag material">#金屬製</span><span class="tag material">#木製</span><span class="tag material">#骨製</span><span class="tag material">#結晶</span></div></div><div class="card"><div class="head"><span class="name">wrap</span><span class="id">identity · 0</span></div><div><span class="small">（目前無 tag）</span></div></div><div class="card"><div class="head"><span class="name">edge · 傷害類型</span><span class="id">identity · 2</span></div><div><span class="tag edge">#打擊</span><span class="tag edge">#斬擊</span></div></div><div class="card"><div class="head"><span class="name">form · 攻擊型態 (base)</span><span class="id">identity · 2</span></div><div><span class="tag form">#揮舞</span><span class="tag form">#重擊</span></div></div><div class="card"><div class="head"><span class="name">form_special · 攻擊型態 (special)</span><span class="id">identity · 2</span></div><div><span class="tag special">#環繞</span><span class="tag special">#投射物</span></div></div><div class="card"><div class="head"><span class="name">archetype_signature · Archetype 簽名 (talent-granted)</span><span class="id">identity · 24</span></div><div><span class="tag signature">#飛雷錘</span><span class="tag signature">#雷神迴旋鎚</span><span class="tag signature">#天雷神域鎚</span><span class="tag signature">#骨飛斧</span><span class="tag signature">#火焰巨人錘</span><span class="tag signature">#火山巨人錘</span><span class="tag signature">#遠古泰坦熔爐</span><span class="tag signature">#法杖</span><span class="tag signature">#賢者法杖</span><span class="tag signature">#元素創世杖</span><span class="tag signature">#骸骨巨鐮</span><span class="tag signature">#冥府迴鐮</span><span class="tag signature">#黃泉收割者</span><span class="tag signature">#名刀吹雪</span><span class="tag signature">#吹雪・刃風</span><span class="tag signature">#吹雪・居合零式</span><span class="tag signature">#毒針</span><span class="tag signature">#蝕毒爆針</span><span class="tag signature">#瘴氣毒華</span><span class="tag signature">#腥風骨旋</span><span class="tag signature">#萬骨颶風</span><span class="tag signature">#鎮獄棒</span><span class="tag signature">#鎮獄迴旋棒</span><span class="tag signature">#鎮獄・五行旋風</span></div></div><div class="card"><div class="head"><span class="name">element</span><span class="id">identity · 4</span></div><div><span class="tag element">#火</span><span class="tag element">#冰</span><span class="tag element">#雷</span><span class="tag element">#毒</span></div></div><div class="card"><div class="head"><span class="name">effect</span><span class="id">non-identity · 2</span></div><div><span class="tag effect">#持續</span><span class="tag effect">#流血</span></div></div><div class="card"><div class="head"><span class="name">physical</span><span class="id">non-identity · 0</span></div><div><span class="small">（目前無 tag）</span></div></div></div>
+<p class="row"><span class="label">denylist</span><span class="tag ">#範圍</span><span class="tag ">#高傷</span><span class="tag ">#快速</span><span class="tag ">#強力</span><span class="tag ">#普通</span><span class="small">（語意模糊、禁止生成的 tag）</span></p>
+<h3>7 軸與允許觸碰的 stats（axes-schema.json）</h3>
+<table><tr><th>axis</th><th>identity family</th><th>允許的 stats</th></tr><tr><td>shape</td><td>shape</td><td><code>weapon_length</code>、<code>swing_arc</code>、<code>swing_speed</code>、<code>hitbox_shape</code>、<code>hitbox_scale</code></td></tr><tr><td>material</td><td>material</td><td><code>damage</code>、<code>knockback</code>、<code>swing_speed</code>、<code>durability</code>、<code>special_mechanic</code>、<code>element_damage_mul</code>、<code>physical_damage_mul</code></td></tr><tr><td>wrap</td><td>wrap</td><td><code>damage</code>、<code>swing_speed</code>、<code>knockback</code></td></tr><tr><td>element</td><td>—</td><td><code>damage_type</code>、<code>dot_dps</code>、<code>dot_dps_per_damage</code>、<code>dot_duration</code>、<code>dot_mode</code>、<code>dot_max_stacks</code>、<code>slow_pct</code>、<code>slow_duration</code>、<code>slow_stack_decay</code>、<code>slow_max_stacks</code>、<code>status_effect</code></td></tr><tr><td>attachment</td><td>—</td><td><code>damage</code>、<code>knockback</code>、<code>crit_chance</code>、<code>pierce_count</code>、<code>swing_speed</code>、<code>hitbox_shape</code></td></tr><tr><td>form</td><td>form</td><td><code>attack_mode</code>、<code>swing_arc</code>、<code>swing_speed</code>、<code>swing_recovery</code>、<code>projectile_count</code>、<code>projectile_speed</code>、<code>projectile_lifetime</code>、<code>fire_pattern</code>、<code>orbit_radius</code>、<code>orbit_speed</code>、<code>orbit_count</code>、<code>aura_radius</code>、<code>tick_rate</code></td></tr><tr><td>passive</td><td>—</td><td><code>player.move_speed</code>、<code>player.attack_speed_mul</code>、<code>player.range_mul</code>、<code>player.projectile_count_mul</code>、<code>player.crit_chance</code>、<code>player.max_hp</code>、<code>player.xp_gain_mul</code>、<code>player.pickup_radius</code>、<code>player.dot_damage_mul</code>、<code>player.dot_stack_cap_bonus</code>、<code>player.slow_stack_cap_bonus</code>、<code>player.bleed_damage_mul</code></td></tr></table></section>
+<section id="modifiers"><h2>Modifiers（升級選項）</h2>
+<p class="lede">一般升級（3 選 1）抽選池。enabled 22/28 —— 停用者多為已被 talent 取代的舊形態 modifier 與測試 fixture。</p>
+<div class="grid wide"><div class="card disabled">
+<div class="head"><span class="name">加長</span><span class="id">mod_lengthen_v1</span></div>
+<div class="desc">(W Slice 2: retired from offerings; test fixture only; enabled=false)</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>weapon_length</code> +35、<code>swing_speed</code> ×0.92</div>
+
+<div class="row"><span class="label">stack</span>max 4 · decay 0.5 · weight 1.0 · <span class="off">disabled</span></div>
+</div><div class="card disabled">
+<div class="head"><span class="name">縮短</span><span class="id">mod_shorten_v1</span></div>
+<div class="desc">(W Slice 2: retired from offerings; test fixture only; enabled=false)</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>weapon_length</code> -35、<code>swing_speed</code> ×1.09</div>
+
+<div class="row"><span class="label">stack</span>max 4 · decay 0.5 · weight 1.0 · <span class="off">disabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">金屬化</span><span class="id">material_metal_v1</span></div>
+<div class="desc">武器變為鐵製，傷害提高、擊退增強。</div>
+<div><span class="tag material">#金屬製</span></div>
+<div class="row"><span class="label">stats</span><code>damage</code> +4、<code>knockback</code> +50</div>
+<div class="row"><span class="label">conflicts</span>#骨製、#結晶</div>
+<div class="row"><span class="label">stack</span>max 4 · decay 0.5 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">骨製化</span><span class="id">material_bone_v1</span></div>
+<div class="desc">武器以骨頭打造。物理傷害提升並自帶流血。拒絕與元素並存。</div>
+<div><span class="tag material">#骨製</span><span class="tag effect">#流血</span><span class="tag effect">#持續</span></div>
+<div class="row"><span class="label">stats</span><code>damage</code> +3、<code>knockback</code> +20、<code>special_mechanic</code> = bleed</div>
+<div class="row"><span class="label">conflicts</span>#火、#冰、#雷、#毒、#金屬製、#結晶</div>
+<div class="row"><span class="label">stack</span>max 1 · decay 0.5 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">結晶化</span><span class="id">material_crystal_v1</span></div>
+<div class="desc">武器轉化為結晶。元素傷害放大 1.5x，物理傷害衰減 0.7x。</div>
+<div><span class="tag material">#結晶</span></div>
+<div class="row"><span class="label">stats</span><code>element_damage_mul</code> ×1.5、<code>physical_damage_mul</code> ×0.7</div>
+<div class="row"><span class="label">conflicts</span>#金屬製、#骨製</div>
+<div class="row"><span class="label">stack</span>max 1 · decay 0.5 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">開刃</span><span class="id">attachment_blade_v1</span></div>
+<div class="desc">將武器邊緣磨利，攻擊型態轉為斬擊。</div>
+<div><span class="tag edge">#斬擊</span></div>
+<div class="row"><span class="label">stats</span><code>damage</code> +2、<code>crit_chance</code> +0.05</div>
+
+<div class="row"><span class="label">stack</span>max 2 · decay 0.4 · weight 0.8 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">重塊</span><span class="id">attachment_heavy_head_v1</span></div>
+<div class="desc">在武器前端集中質量，揮舞改為前方圓形重擊。</div>
+<div><span class="tag form">#重擊</span></div>
+<div class="row"><span class="label">stats</span><code>damage</code> +5、<code>knockback</code> +30、<code>swing_speed</code> ×0.85、<code>hitbox_shape</code> = circle</div>
+
+<div class="row"><span class="label">stack</span>max 1 · decay 1.0 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card disabled">
+<div class="head"><span class="name">投射形態</span><span class="id">form_projectile_v1</span></div>
+<div class="desc">武器化為投射形態，每次攻擊射出 3 個投射物。需要 #短小 前置。Plan 4B 補上。</div>
+<div><span class="tag special">#投射物</span></div>
+<div class="row"><span class="label">stats</span><code>attack_mode</code> = projectile、<code>projectile_count</code> = 3、<code>projectile_speed</code> = 600、<code>projectile_lifetime</code> = 1.5</div>
+
+<div class="row"><span class="label">stack</span>max 1 · decay 0.0 · weight 0.1 · <span class="off">disabled</span></div>
+</div><div class="card disabled">
+<div class="head"><span class="name">環繞形態</span><span class="id">form_orbiting_v1</span></div>
+<div class="desc">投射物轉為環繞自身的軌道。需要 #投射物 前置。</div>
+<div><span class="tag special">#環繞</span></div>
+<div class="row"><span class="label">stats</span><code>attack_mode</code> = orbiting、<code>orbit_radius</code> = 90、<code>orbit_speed</code> = 3.0、<code>orbit_count</code> = 3</div>
+
+<div class="row"><span class="label">stack</span>max 1 · decay 0.0 · weight 0.1 · <span class="off">disabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">敏捷</span><span class="id">passive_atkspeed_v1</span></div>
+<div class="desc">攻擊速度 +15%</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.attack_speed_mul</code> ×1.15</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.7 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">迅捷</span><span class="id">passive_movespeed_v1</span></div>
+<div class="desc">移動速度 +12%</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.move_speed</code> ×1.12</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.7 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">投射強化</span><span class="id">passive_projectile_boost_v1</span></div>
+<div class="desc">投射物 +2（每次拾取累加）。需要 #投射物 武器才有意義。Plan 4B 補上。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.projectile_count_mul</code> +2</div>
+
+<div class="row"><span class="label">stack</span>max 4 · decay 1.0 · weight 0.8 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">傷害</span><span class="id">passive_damage_v1</span></div>
+<div class="desc">武器傷害 +2。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>damage</code> +2</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">暴擊率</span><span class="id">passive_crit_v1</span></div>
+<div class="desc">暴擊率 +5%。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.crit_chance</code> +0.05</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">範圍</span><span class="id">passive_range_v1</span></div>
+<div class="desc">武器有效範圍 ×1.10。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.range_mul</code> ×1.1</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">生命</span><span class="id">passive_max_hp_v1</span></div>
+<div class="desc">最大生命 +30。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.max_hp</code> +30</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">拾取範圍</span><span class="id">passive_pickup_v1</span></div>
+<div class="desc">拾取半徑 +40。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.pickup_radius</code> +40</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">經驗</span><span class="id">passive_xp_gain_v1</span></div>
+<div class="desc">經驗值獲取 ×1.15。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.xp_gain_mul</code> ×1.15</div>
+
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">投射速度</span><span class="id">passive_proj_speed_v1</span></div>
+<div class="desc">投射物速度 ×1.20。需要 #投射物。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>projectile_speed</code> ×1.2</div>
+<div class="row"><span class="label">requires</span>#投射物</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">投射時長</span><span class="id">passive_proj_lifetime_v1</span></div>
+<div class="desc">投射物存活時間 ×1.25。需要 #投射物。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>projectile_lifetime</code> ×1.25</div>
+<div class="row"><span class="label">requires</span>#投射物</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">穿透</span><span class="id">passive_proj_pierce_v1</span></div>
+<div class="desc">投射物穿透 +1。需要 #投射物。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>pierce_count</code> +1</div>
+<div class="row"><span class="label">requires</span>#投射物</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card disabled">
+<div class="head"><span class="name">環繞速度</span><span class="id">passive_orbit_speed_v1</span></div>
+<div class="desc">環繞旋轉速度 ×1.20。需要 #環繞。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>orbit_speed</code> ×1.2</div>
+<div class="row"><span class="label">requires</span>#環繞</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="off">disabled</span></div>
+</div><div class="card disabled">
+<div class="head"><span class="name">環繞數量</span><span class="id">passive_orbit_count_v1</span></div>
+<div class="desc">環繞數量 +1。需要 #環繞。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>orbit_count</code> +1</div>
+<div class="row"><span class="label">requires</span>#環繞</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="off">disabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">元素傷害</span><span class="id">passive_elem_dmg_v1</span></div>
+<div class="desc">持續傷害 (DOT) ×1.15。需要 #持續（任一持續傷害來源：火/毒/流血）。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.dot_damage_mul</code> ×1.15</div>
+<div class="row"><span class="label">requires</span>#持續</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">元素堆疊</span><span class="id">passive_dot_stack_v1</span></div>
+<div class="desc">DOT 堆疊上限 +2。需要 #持續。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.dot_stack_cap_bonus</code> +2</div>
+<div class="row"><span class="label">requires</span>#持續</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">元素持續</span><span class="id">passive_dot_duration_v1</span></div>
+<div class="desc">DOT 持續時間 +2 秒。需要 #持續。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>dot_duration</code> +2</div>
+<div class="row"><span class="label">requires</span>#持續</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">流血傷害</span><span class="id">passive_bleed_dmg_v1</span></div>
+<div class="desc">流血傷害 ×1.50。需要 #流血。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>player.bleed_damage_mul</code> ×1.5</div>
+<div class="row"><span class="label">requires</span>#流血</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div><div class="card">
+<div class="head"><span class="name">揮舞弧度</span><span class="id">passive_swing_arc_v1</span></div>
+<div class="desc">揮舞弧度 ×1.20。需要 #揮舞。</div>
+<div><span class="small">（無 tag，純數值）</span></div>
+<div class="row"><span class="label">stats</span><code>swing_arc</code> ×1.2</div>
+<div class="row"><span class="label">requires</span>#揮舞</div>
+<div class="row"><span class="label">stack</span>max 5 · decay 0.6 · weight 1.0 · <span class="ok">enabled</span></div>
+</div></div></section>
+<section id="archetypes"><h2>Archetypes</h2>
+<p class="lede">archetype 是「武器 tag 組合的命名」：偵測器以 match.all_of ⊆ 武器 tags 判定，取最高 tier 顯示。
+tier = 與初始木棍的編輯距離。T0 起點 1、T1 基本形 7、T2 變化形 144、T3 神器 11；T4/T5 為 component signature（見下節）。</p>
+<h3>T0 / T1 — 起點與基本形</h3>
+<div class="grid"><div class="card">
+<div class="head"><span class="name"><span class="badge t0">T0</span> 木棍</span><span class="id">archetype_wooden_stick</span></div>
+<div class="desc">未經改造的中等木棍，最樸素的起點。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span></div>
+<div class="row small">你握緊了一根木棍。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 鐵棍</span><span class="id">archetype_iron_stick</span></div>
+<div class="desc">中等長度的金屬棍，沉穩而可靠。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span></div>
+<div class="row small">木棍替換成金屬桿，鐵棍成形。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 木劍</span><span class="id">archetype_wooden_sword</span></div>
+<div class="desc">木棍前端削出長條刃，劍 family 的入門形態。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span></div>
+<div class="row small">木棍削出刃，化為木劍。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 鐵劍</span><span class="id">archetype_iron_sword</span></div>
+<div class="desc">金屬鍛造的中等長劍，劍 family 的標準形態。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span></div>
+<div class="row small">鋼刃在手，鐵劍成形。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 木鎚</span><span class="id">archetype_wooden_mace</span></div>
+<div class="desc">木棍前端裝上重型木塊，揮舞變為前方圓擊。錘 family 入門。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span></div>
+<div class="row small">重塊扎根於木棍前端，木鎚成形。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 鐵鎚</span><span class="id">archetype_iron_mace</span></div>
+<div class="desc">金屬鎚頭裝於中等手柄，前方圓擊壓倒性。錘 family 標準形態。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span></div>
+<div class="row small">金屬鎚頭凝聚重量，鐵鎚成形。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 木斧</span><span class="id">archetype_wooden_axe</span></div>
+<div class="desc">木手柄前端裝上單側重型刃，揮砍化為前方重劈。斧 family 入門。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span></div>
+<div class="row small">單側重刃裝上柄，木斧成形。</div>
+</div><div class="card">
+<div class="head"><span class="name"><span class="badge t1">T1</span> 鐵斧</span><span class="id">archetype_iron_axe</span></div>
+<div class="desc">金屬單側重型斧刃，每揮一擊都能劈開敵陣。斧 family 標準形態。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span></div>
+<div class="row small">金屬重斧刃成形，劈開敵陣。</div>
+</div></div>
+<h3>T2 — 變化形（144）</h3>
+<p class="row">T2 為四大家族的「元素 × 材質 × 尺寸」全組合變化形。杖家族無 T2 —— 法杖路線從棍家族的結晶短棒長出。</p>
+<details><summary>棍家族 T2 × 36（元素 4 × 材質 3 × 尺寸 3）</summary><div>
+<table><tr><th>名稱</th><th>match</th><th>id</th></tr><tr><td>火焰木短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_wood_stick</td></tr><tr><td>冰霜木短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_wood_stick</td></tr><tr><td>雷電木短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_wood_stick</td></tr><tr><td>毒性木短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_wood_stick</td></tr><tr><td>火焰鐵短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_metal_stick</td></tr><tr><td>冰霜鐵短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_metal_stick</td></tr><tr><td>雷電鐵短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_metal_stick</td></tr><tr><td>毒性鐵短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_metal_stick</td></tr><tr><td>火焰結晶短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_crystal_stick</td></tr><tr><td>冰霜結晶短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_crystal_stick</td></tr><tr><td>雷電結晶短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_crystal_stick</td></tr><tr><td>毒性結晶短棒</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_crystal_stick</td></tr><tr><td>火焰木棍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_wood_stick</td></tr><tr><td>冰霜木棍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_wood_stick</td></tr><tr><td>雷電木棍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_wood_stick</td></tr><tr><td>毒性木棍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_wood_stick</td></tr><tr><td>火焰鐵棍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_metal_stick</td></tr><tr><td>冰霜鐵棍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_metal_stick</td></tr><tr><td>雷電鐵棍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_metal_stick</td></tr><tr><td>毒性鐵棍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_metal_stick</td></tr><tr><td>火焰結晶棍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_crystal_stick</td></tr><tr><td>冰霜結晶棍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_crystal_stick</td></tr><tr><td>雷電結晶棍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_crystal_stick</td></tr><tr><td>毒性結晶棍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_crystal_stick</td></tr><tr><td>火焰木長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_wood_stick</td></tr><tr><td>冰霜木長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_wood_stick</td></tr><tr><td>雷電木長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_wood_stick</td></tr><tr><td>毒性木長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_wood_stick</td></tr><tr><td>火焰鐵長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_metal_stick</td></tr><tr><td>冰霜鐵長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_metal_stick</td></tr><tr><td>雷電鐵長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_metal_stick</td></tr><tr><td>毒性鐵長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_metal_stick</td></tr><tr><td>火焰結晶長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_crystal_stick</td></tr><tr><td>冰霜結晶長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_crystal_stick</td></tr><tr><td>雷電結晶長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_crystal_stick</td></tr><tr><td>毒性結晶長仗</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_crystal_stick</td></tr></table></div></details><details><summary>劍家族 T2 × 36（元素 4 × 材質 3 × 尺寸 3）</summary><div>
+<table><tr><th>名稱</th><th>match</th><th>id</th></tr><tr><td>火焰木匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_wood_sword</td></tr><tr><td>冰霜木匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_wood_sword</td></tr><tr><td>雷電木匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_wood_sword</td></tr><tr><td>毒性木匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_wood_sword</td></tr><tr><td>火焰鐵匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_metal_sword</td></tr><tr><td>冰霜鐵匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_metal_sword</td></tr><tr><td>雷電鐵匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_metal_sword</td></tr><tr><td>毒性鐵匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_metal_sword</td></tr><tr><td>火焰結晶匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_crystal_sword</td></tr><tr><td>冰霜結晶匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_crystal_sword</td></tr><tr><td>雷電結晶匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_crystal_sword</td></tr><tr><td>毒性結晶匕首</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_crystal_sword</td></tr><tr><td>火焰木劍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_wood_sword</td></tr><tr><td>冰霜木劍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_wood_sword</td></tr><tr><td>雷電木劍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_wood_sword</td></tr><tr><td>毒性木劍</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_wood_sword</td></tr><tr><td>火焰鐵劍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_metal_sword</td></tr><tr><td>冰霜鐵劍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_metal_sword</td></tr><tr><td>雷電鐵劍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_metal_sword</td></tr><tr><td>毒性鐵劍</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_metal_sword</td></tr><tr><td>火焰結晶劍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_crystal_sword</td></tr><tr><td>冰霜結晶劍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_crystal_sword</td></tr><tr><td>雷電結晶劍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_crystal_sword</td></tr><tr><td>毒性結晶劍</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_crystal_sword</td></tr><tr><td>火焰木大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_wood_sword</td></tr><tr><td>冰霜木大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_wood_sword</td></tr><tr><td>雷電木大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_wood_sword</td></tr><tr><td>毒性木大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_wood_sword</td></tr><tr><td>火焰鐵大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_metal_sword</td></tr><tr><td>冰霜鐵大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_metal_sword</td></tr><tr><td>雷電鐵大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_metal_sword</td></tr><tr><td>毒性鐵大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_metal_sword</td></tr><tr><td>火焰結晶大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_crystal_sword</td></tr><tr><td>冰霜結晶大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_crystal_sword</td></tr><tr><td>雷電結晶大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_crystal_sword</td></tr><tr><td>毒性結晶大劍</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_crystal_sword</td></tr></table></div></details><details><summary>鎚家族 T2 × 36（元素 4 × 材質 3 × 尺寸 3）</summary><div>
+<table><tr><th>名稱</th><th>match</th><th>id</th></tr><tr><td>火焰木露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_wood_mace</td></tr><tr><td>冰霜木露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_wood_mace</td></tr><tr><td>雷電木露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_wood_mace</td></tr><tr><td>毒性木露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_wood_mace</td></tr><tr><td>火焰鐵露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_metal_mace</td></tr><tr><td>冰霜鐵露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_metal_mace</td></tr><tr><td>雷電鐵露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_metal_mace</td></tr><tr><td>毒性鐵露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_metal_mace</td></tr><tr><td>火焰結晶露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_crystal_mace</td></tr><tr><td>冰霜結晶露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_crystal_mace</td></tr><tr><td>雷電結晶露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_crystal_mace</td></tr><tr><td>毒性結晶露營錘</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_crystal_mace</td></tr><tr><td>火焰木錘</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_wood_mace</td></tr><tr><td>冰霜木錘</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_wood_mace</td></tr><tr><td>雷電木錘</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_wood_mace</td></tr><tr><td>毒性木錘</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_wood_mace</td></tr><tr><td>火焰鐵錘</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_metal_mace</td></tr><tr><td>冰霜鐵錘</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_metal_mace</td></tr><tr><td>雷電鐵錘</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_metal_mace</td></tr><tr><td>毒性鐵錘</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_metal_mace</td></tr><tr><td>火焰結晶錘</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_crystal_mace</td></tr><tr><td>冰霜結晶錘</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_crystal_mace</td></tr><tr><td>雷電結晶錘</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_crystal_mace</td></tr><tr><td>毒性結晶錘</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_crystal_mace</td></tr><tr><td>火焰木大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_wood_mace</td></tr><tr><td>冰霜木大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_wood_mace</td></tr><tr><td>雷電木大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_wood_mace</td></tr><tr><td>毒性木大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_wood_mace</td></tr><tr><td>火焰鐵大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_metal_mace</td></tr><tr><td>冰霜鐵大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_metal_mace</td></tr><tr><td>雷電鐵大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_metal_mace</td></tr><tr><td>毒性鐵大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_metal_mace</td></tr><tr><td>火焰結晶大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_crystal_mace</td></tr><tr><td>冰霜結晶大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_crystal_mace</td></tr><tr><td>雷電結晶大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_crystal_mace</td></tr><tr><td>毒性結晶大錘</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_crystal_mace</td></tr></table></div></details><details><summary>斧家族 T2 × 36（元素 4 × 材質 3 × 尺寸 3）</summary><div>
+<table><tr><th>名稱</th><th>match</th><th>id</th></tr><tr><td>火焰木手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_wood_axe</td></tr><tr><td>冰霜木手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_wood_axe</td></tr><tr><td>雷電木手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_wood_axe</td></tr><tr><td>毒性木手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_wood_axe</td></tr><tr><td>火焰鐵手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_metal_axe</td></tr><tr><td>冰霜鐵手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_metal_axe</td></tr><tr><td>雷電鐵手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_metal_axe</td></tr><tr><td>毒性鐵手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_metal_axe</td></tr><tr><td>火焰結晶手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_short_crystal_axe</td></tr><tr><td>冰霜結晶手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_short_crystal_axe</td></tr><tr><td>雷電結晶手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_short_crystal_axe</td></tr><tr><td>毒性結晶手斧</td><td><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_short_crystal_axe</td></tr><tr><td>火焰木斧</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_wood_axe</td></tr><tr><td>冰霜木斧</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_wood_axe</td></tr><tr><td>雷電木斧</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_wood_axe</td></tr><tr><td>毒性木斧</td><td><span class="tag shape">#中等</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_wood_axe</td></tr><tr><td>火焰鐵斧</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_metal_axe</td></tr><tr><td>冰霜鐵斧</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_metal_axe</td></tr><tr><td>雷電鐵斧</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_metal_axe</td></tr><tr><td>毒性鐵斧</td><td><span class="tag shape">#中等</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_metal_axe</td></tr><tr><td>火焰結晶斧</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_mid_crystal_axe</td></tr><tr><td>冰霜結晶斧</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_mid_crystal_axe</td></tr><tr><td>雷電結晶斧</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_mid_crystal_axe</td></tr><tr><td>毒性結晶斧</td><td><span class="tag shape">#中等</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_mid_crystal_axe</td></tr><tr><td>火焰木大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_wood_axe</td></tr><tr><td>冰霜木大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_wood_axe</td></tr><tr><td>雷電木大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_wood_axe</td></tr><tr><td>毒性木大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#木製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_wood_axe</td></tr><tr><td>火焰鐵大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_metal_axe</td></tr><tr><td>冰霜鐵大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_metal_axe</td></tr><tr><td>雷電鐵大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_metal_axe</td></tr><tr><td>毒性鐵大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_metal_axe</td></tr><tr><td>火焰結晶大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span></td><td class='small'>archetype_fire_long_crystal_axe</td></tr><tr><td>冰霜結晶大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#冰</span></td><td class='small'>archetype_ice_long_crystal_axe</td></tr><tr><td>雷電結晶大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span></td><td class='small'>archetype_thunder_long_crystal_axe</td></tr><tr><td>毒性結晶大斧</td><td><span class="tag shape">#長兵</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag element">#毒</span></td><td class='small'>archetype_poison_long_crystal_axe</td></tr></table></div></details>
+<h3>T3 — 神器（11）</h3>
+<div class="grid wide"><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 火焰巨人錘</span><span class="id">archetype_fire_giant_hammer</span></div>
+<div class="desc">火焰巨人之鎚——重擊落下，3 段同心圓震波焚毀大地。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#火</span><span class="tag signature">#火焰巨人錘</span></div>
+<div class="row small">鐵鎚拉長為巨人之軀，焰浪自地脈湧出——火焰巨人錘成形。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 火法杖</span><span class="id">archetype_fire_staff</span></div>
+<div class="desc">結晶短杖凝聚烈焰，射出大型火球——命中爆破，焰地殘留 2 秒。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag special">#投射物</span><span class="tag element">#火</span><span class="tag signature">#法杖</span></div>
+<div class="row small">短杖凝聚火焰之力，化為火法杖。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 冰法杖</span><span class="id">archetype_ice_staff</span></div>
+<div class="desc">結晶短杖凝聚寒霜，射出大型冰球——命中爆破，冰原殘留 2 秒。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag special">#投射物</span><span class="tag element">#冰</span><span class="tag signature">#法杖</span></div>
+<div class="row small">短杖凝聚寒霜之力，化為冰法杖。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 雷法杖</span><span class="id">archetype_thunder_staff</span></div>
+<div class="desc">結晶短杖凝聚雷電，射出大型雷球——命中爆破，電場殘留 2 秒。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag special">#投射物</span><span class="tag element">#雷</span><span class="tag signature">#法杖</span></div>
+<div class="row small">短杖凝聚雷電之力，化為雷法杖。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 毒法杖</span><span class="id">archetype_poison_staff</span></div>
+<div class="desc">結晶短杖凝聚毒霧，射出大型毒球——命中爆破，毒霧殘留 2 秒。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag special">#投射物</span><span class="tag element">#毒</span><span class="tag signature">#法杖</span></div>
+<div class="row small">短杖凝聚毒霧之力，化為毒法杖。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 飛雷錘</span><span class="id">archetype_flying_thunder_mace</span></div>
+<div class="desc">雷光在鐵鎚頂端聚成電芒，去而復返如迴旋鏢——重擊的速度版，每鎚雙段命中。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#重擊</span><span class="tag element">#雷</span><span class="tag special">#投射物</span><span class="tag signature">#飛雷錘</span></div>
+<div class="row small">短鎚化為迴旋雷錘，飛雷錘成形。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 骸骨巨鐮</span><span class="id">archetype_bone_reaper</span></div>
+<div class="desc">骨刃延展為大扇死神鐮——慢而重的一鐮，命中必出血。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#長兵</span><span class="tag material">#骨製</span><span class="tag edge">#斬擊</span><span class="tag form">#重擊</span><span class="tag signature">#骸骨巨鐮</span></div>
+<div class="row small">骨大斧延展為扇刃，骸骨巨鐮成形。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 骨飛斧</span><span class="id">archetype_bone_flying_axe</span></div>
+<div class="desc">骨刃縮為手擲尺寸，旋轉拋出後自帶流血。輕，但見血。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#骨製</span><span class="tag edge">#斬擊</span><span class="tag special">#投射物</span><span class="tag signature">#骨飛斧</span></div>
+<div class="row small">骨斧縮短後投射，骨飛斧成形。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 名刀吹雪</span><span class="id">archetype_fubuki</span></div>
+<div class="desc">霜華凝於長刃——首擊冰緩，二擊凍結，亡魂炸出冰原。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#斬擊</span><span class="tag form">#揮舞</span><span class="tag element">#冰</span><span class="tag signature">#名刀吹雪</span></div>
+<div class="row small">霜華凝聚於長刃，名刀吹雪成形。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 毒針</span><span class="id">archetype_poison_needle</span></div>
+<div class="desc">結晶毒針，速如閃光——每一刺都浸入更深的毒蝕。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#短小</span><span class="tag material">#結晶</span><span class="tag edge">#斬擊</span><span class="tag special">#投射物</span><span class="tag element">#毒</span><span class="tag signature">#毒針</span></div>
+<div class="row small">結晶短刃化為毒針，每刺 +2 毒，最高堆疊 20。</div>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t3">T3</span> 鎮獄棒</span><span class="id">archetype_judgment_staff</span></div>
+<div class="desc">金屬長棒加重——比鐵棍更寬、更遠、更重的一記揮舞。</div>
+<div class="row"><span class="label">match</span><span class="tag shape">#長兵</span><span class="tag material">#金屬製</span><span class="tag edge">#打擊</span><span class="tag form">#揮舞</span><span class="tag signature">#鎮獄棒</span></div>
+<div class="row small">鐵長棍刻上獄紋，鎮獄棒成形。</div>
+</div></div></section>
+<section id="components"><h2>T4 / T5 Component Signatures</h2>
+<p class="lede">T4/T5 是神器的派生強化：由 D bucket 天賦授予 signature tag，效果以「組件」描述 —— core（核心攻擊）+ derivative（派生效果），
+每個派生宣告自己的 trigger（聽哪個事件）與 payload（template + 參數），stat_routing 決定武器 stats 如何縮放組件參數。共 16 個 signature。</p>
+<div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #鎮獄迴旋棒</span><span class="id">judgment_whirl</span></div>
+<div class="row"><span class="label">取得</span>鎮獄迴旋棒形態 — 授予 #鎮獄迴旋棒：推進短旋（360° + dmg×1.3）。</div>
+<p class="row small">無派生組件 —— 效果直接實作於 weapon.gd（attack mode）。</p>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #鎮獄・五行旋風</span><span class="id">judgment_storm</span></div>
+<div class="row"><span class="label">取得</span>鎮獄・五行旋風形態 — 授予 #鎮獄・五行旋風：短旋噴元素旋風（依棒屬性分流；dmg×2.0 / range×1.3）。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_short_whirl</code></td><td>core</td><td><code>melee</code></td><td><code>—</code></td><td class='small'></td></tr><tr><td><code>element_tornado</code></td><td>derivative</td><td><code>moving_zone</code></td><td><code>on_swing:core_short_whirl</code></td><td class='small'><code>radius</code>=60.0、<code>lifetime</code>=2.5、<code>speed</code>=120.0、<code>tick_interval</code>=0.4、<code>turn_interval</code>=1.0、<code>dmg_mul</code>=0.4（共 17 參數）</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #火山巨人錘</span><span class="id">fire_volcano_hammer</span></div>
+<div class="row"><span class="label">取得</span>火山巨人錘形態 — 需 #火焰巨人錘。授予 #火山巨人錘 (T4 component signature)。核心震波擊殺時噴出火球，火球落地觸發小震波。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_shockwave</code></td><td>core</td><td><code>shockwave</code></td><td><code>—</code></td><td class='small'><code>stages</code>=3</td></tr><tr><td><code>fireball_spawner</code></td><td>derivative</td><td><code>projectile_burst</code></td><td><code>on_kill:core_shockwave</code></td><td class='small'><code>count</code>=3、<code>speed</code>=300.0、<code>lifetime</code>=0.6、<code>dmg_mul</code>=0.5、<code>pattern</code>=random</td></tr><tr><td><code>fireball_shockwave</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_landing:fireball_spawner</code></td><td class='small'><code>radius</code>=60.0、<code>dmg_mul</code>=0.3</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #蝕毒爆針</span><span class="id">venom_detonator</span></div>
+<div class="row"><span class="label">取得</span>蝕毒爆針形態 — 需 #毒針。授予 #蝕毒爆針 (T4 component signature)。命中已疊滿 10 毒的敵人時消耗全部毒層觸發範圍毒爆，毒爆對周圍敵人 +3 毒。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_needle</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'></td></tr><tr><td><code>poison_detonation</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_hit_max_poison:core_needle</code></td><td class='small'><code>radius</code>=150.0、<code>dmg_mul</code>=1.3、<code>effect</code>=poison、<code>poison_stacks</code>=3、<code>poison_cap</code>=10</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #瘴氣毒華</span><span class="id">miasma_bloom</span></div>
+<div class="row"><span class="label">取得</span>瘴氣毒華形態 — 需 #蝕毒爆針。授予 #瘴氣毒華 (T5 component signature)。毒爆後在引爆位置留下毒雲 (r=120, 5s)，每 0.5s 對範圍內敵人 +2 毒。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_needle</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'></td></tr><tr><td><code>poison_detonation</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_hit_max_poison:core_needle</code></td><td class='small'><code>radius</code>=150.0、<code>dmg_mul</code>=2.0、<code>effect</code>=poison、<code>poison_stacks</code>=3、<code>poison_cap</code>=10</td></tr><tr><td><code>poison_cloud</code></td><td>derivative</td><td><code>zone_field</code></td><td><code>on_burst:poison_detonation</code></td><td class='small'><code>radius</code>=120.0、<code>duration</code>=5.0、<code>tick_interval</code>=0.5、<code>damage</code>=0、<code>effect</code>=poison、<code>poison_stacks</code>=2（共 7 參數）</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #腥風骨旋</span><span class="id">crimson_cyclone_axe</span></div>
+<div class="row"><span class="label">取得</span>腥風骨旋形態 — 需 #骨飛斧。授予 #腥風骨旋 (T4 component signature)。投擲 4 把短距飛斧，落地形成旋風場 (r=80, 5s)，每 0.3s 對範圍內敵人造傷 + apply_bleed (cap 12)。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_axe_throw</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>count</code>=4、<code>range</code>=150</td></tr><tr><td><code>whirlwind_zone</code></td><td>derivative</td><td><code>zone_field</code></td><td><code>on_landing:core_axe_throw</code></td><td class='small'><code>radius</code>=80.0、<code>duration</code>=5.0、<code>tick_interval</code>=0.3、<code>dmg_mul</code>=0.3、<code>effect</code>=bleed、<code>bleed_dps</code>=0.5（共 8 參數）</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #萬骨颶風</span><span class="id">bone_hurricane</span></div>
+<div class="row"><span class="label">取得</span>萬骨颶風形態 — 需 #腥風骨旋。授予 #萬骨颶風 (T5 component signature)。旋風範圍 80→120；到期散射 3 個移動龍捲風 (4s, r=50)，各自隨機遊走 + tick bleed (cap 16)。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_axe_throw</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>count</code>=4、<code>range</code>=150</td></tr><tr><td><code>whirlwind_zone</code></td><td>derivative</td><td><code>zone_field</code></td><td><code>on_landing:core_axe_throw</code></td><td class='small'><code>radius</code>=120.0、<code>duration</code>=5.0、<code>tick_interval</code>=0.3、<code>dmg_mul</code>=0.3、<code>effect</code>=bleed、<code>bleed_dps</code>=0.5（共 8 參數）</td></tr><tr><td><code>mini_tornado</code></td><td>derivative</td><td><code>moving_zone</code></td><td><code>on_expire:whirlwind_zone</code></td><td class='small'><code>radius</code>=50.0、<code>lifetime</code>=4.0、<code>speed</code>=150.0、<code>tick_interval</code>=0.5、<code>turn_interval</code>=1.5、<code>dmg_mul</code>=0.2（共 10 參數）</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #吹雪・刃風</span><span class="id">fubuki_blade_wind</span></div>
+<div class="row"><span class="label">取得</span>吹雪・刃風形態 — 需 #名刀吹雪。授予 #吹雪・刃風 (T4 component signature)。每次揮砍發射 3 道冰刀波 (前方扇形散佈, 穿透 1, 射程 300px, 命中 → chill)。凍結敵擊殺 → 200px shatter burst (chill + 80% dmg)。dmg mul_final ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_slash</code></td><td>core</td><td><code>melee</code></td><td><code>—</code></td><td class='small'></td></tr><tr><td><code>ice_blade_wave</code></td><td>derivative</td><td><code>projectile_burst</code></td><td><code>on_swing:core_slash</code></td><td class='small'><code>count</code>=3、<code>speed</code>=400.0、<code>lifetime</code>=0.75、<code>dmg_mul</code>=0.5、<code>pattern</code>=forward_spread、<code>pierce</code>=1（共 10 參數）</td></tr><tr><td><code>shatter_burst</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_kill_frozen:core_slash</code></td><td class='small'><code>radius</code>=200.0、<code>dmg_mul</code>=0.8、<code>effect</code>=chill</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #吹雪・居合零式</span><span class="id">fubuki_iai_zero</span></div>
+<div class="row"><span class="label">取得</span>吹雪・居合零式形態 — 需 #吹雪・刃風。授予 #吹雪・居合零式 (T5 component signature)。攻速 ×0.5，360° 三連斬 (t=0/0.1/0.2s)；8 道冰刀波 360° 散射 (射程 400px)；shatter burst r=200→260。dmg mul_final ×2.0、範圍 mul_final ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_iai_slash</code></td><td>core</td><td><code>shockwave</code></td><td><code>—</code></td><td class='small'><code>stages</code>=3、<code>attack_speed_mul</code>=0.5</td></tr><tr><td><code>ice_blade_wave</code></td><td>derivative</td><td><code>projectile_burst</code></td><td><code>on_swing:core_iai_slash</code></td><td class='small'><code>count</code>=8、<code>speed</code>=400.0、<code>lifetime</code>=1.0、<code>dmg_mul</code>=0.5、<code>pattern</code>=radial_360、<code>pierce</code>=1（共 10 參數）</td></tr><tr><td><code>shatter_burst</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_kill_frozen:core_iai_slash</code></td><td class='small'><code>radius</code>=260.0、<code>dmg_mul</code>=0.8、<code>effect</code>=chill</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #遠古泰坦熔爐</span><span class="id">fire_ancient_titan_forge</span></div>
+<div class="row"><span class="label">取得</span>遠古泰坦熔爐形態 — 需 #火山巨人錘。授予 #遠古泰坦熔爐 (T5 component signature)。震波升級為 5 段；擊殺時留下火山發射器，週期噴出火球與落地震波。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_shockwave</code></td><td>core</td><td><code>shockwave</code></td><td><code>—</code></td><td class='small'><code>stages</code>=5</td></tr><tr><td><code>volcano_spawner</code></td><td>derivative</td><td><code>persistent_emitter</code></td><td><code>on_kill:core_shockwave</code></td><td class='small'><code>lifetime</code>=10.0、<code>tick_interval</code>=1.5、<code>visual_radius</code>=22.0</td></tr><tr><td><code>volcano_fireball</code></td><td>derivative</td><td><code>projectile_burst</code></td><td><code>on_tick:volcano_spawner</code></td><td class='small'><code>count</code>=5、<code>speed</code>=300.0、<code>lifetime</code>=0.6、<code>dmg_mul</code>=0.5、<code>pattern</code>=random</td></tr><tr><td><code>fireball_shockwave</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_landing:volcano_fireball</code></td><td class='small'><code>radius</code>=60.0、<code>dmg_mul</code>=0.3</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #冥府迴鐮</span><span class="id">netherworld_reaper</span></div>
+<div class="row"><span class="label">取得</span>冥府迴鐮形態 — 需 #骸骨巨鐮。授予 #冥府迴鐮 (T4 component signature)。二連斬：第一刀 100%、第二刀反向回掃 50%（間隔 0.25s）。流血每秒傷害 ×2（單層）。dmg ×1.5、攻擊間隔 ×1.7。死神手臂虛影顯現。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_double_slash</code></td><td>core</td><td><code>melee_cone</code></td><td><code>—</code></td><td class='small'></td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #黃泉收割者</span><span class="id">gravewarden_reaper</span></div>
+<div class="row"><span class="label">取得</span>黃泉收割者形態 — 需 #冥府迴鐮。授予 #黃泉收割者 (T5 component signature)。死神降臨：全螢幕二連巨斬（100% + 50%）。靈魂收割：擊殺掉落亡魂，每顆永久 +0.1% 攻擊力與流血基礎傷害（無上限）。dmg ×2.0、攻擊間隔 ×2.5。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_death_sweep</code></td><td>core</td><td><code>melee_cone</code></td><td><code>—</code></td><td class='small'></td></tr><tr><td><code>soul_harvest</code></td><td>derivative</td><td><code>resource_collector</code></td><td><code>on_kill:core_death_sweep</code></td><td class='small'><code>collect_radius</code>=50.0</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #雷神迴旋鎚</span><span class="id">thunder_god_mace</span></div>
+<div class="row"><span class="label">取得</span>雷神迴旋鎚形態 — 需 #飛雷錘。授予 #雷神迴旋鎚 (T4 component signature)。鎚數 +1；鎚到達折返點時 spawn 雷暴 AOE (r=120, 0.4s, apply_shock)；飛行中 r=100 範圍電弧連鎖 (tick 0.1s, chain_depth=3)。dmg mul_final ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_boomerang</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>count</code>=3、<code>pattern</code>=boomerang</td></tr><tr><td><code>turnaround_storm</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_turnaround:core_boomerang</code></td><td class='small'><code>radius</code>=120.0、<code>duration</code>=0.4、<code>dmg_mul</code>=0.5、<code>effect</code>=shock</td></tr><tr><td><code>lightning_web</code></td><td>derivative</td><td><code>aura_ticker</code></td><td><code>while_flying:core_boomerang</code></td><td class='small'><code>radius</code>=100.0、<code>tick_interval</code>=0.1、<code>dmg_mul</code>=0.2、<code>effect</code>=shock、<code>shock_duration</code>=0.05、<code>chain_depth</code>=3（共 7 參數）</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #天雷神域鎚</span><span class="id">thunder_realm_mace</span></div>
+<div class="row"><span class="label">取得</span>天雷神域鎚形態 — 需 #雷神迴旋鎚。授予 #天雷神域鎚 (T5 component signature)。自動 360° 連射 (0.4s/發, 隨機方向)；手動齊射 5 鎚；擊殺雷柱 (#降雨 rain_drop, r=90, shock)。dmg mul_final ×2.0, 範圍 ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_boomerang</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>count</code>=5、<code>pattern</code>=boomerang</td></tr><tr><td><code>auto_barrage</code></td><td>derivative</td><td><code>auto_barrage</code></td><td><code>passive</code></td><td class='small'><code>interval</code>=0.4、<code>max_active</code>=10</td></tr><tr><td><code>lightning_web</code></td><td>derivative</td><td><code>aura_ticker</code></td><td><code>while_flying:core_boomerang,auto_barrage</code></td><td class='small'><code>radius</code>=100.0、<code>tick_interval</code>=0.1、<code>dmg_mul</code>=0.2、<code>effect</code>=shock、<code>shock_duration</code>=0.05、<code>chain_depth</code>=3（共 7 參數）</td></tr><tr><td><code>turnaround_storm</code></td><td>derivative</td><td><code>area_burst</code></td><td><code>on_turnaround:core_boomerang,auto_barrage</code></td><td class='small'><code>radius</code>=120.0、<code>duration</code>=0.4、<code>dmg_mul</code>=0.5、<code>effect</code>=shock</td></tr><tr><td><code>thunder_rain</code></td><td>derivative</td><td><code>rain_drop</code></td><td><code>on_kill:core_boomerang,auto_barrage</code></td><td class='small'><code>delay_warning</code>=0.4、<code>fall_duration</code>=0.2、<code>impact_radius</code>=90.0、<code>dmg_mul</code>=1.2、<code>effect</code>=shock、<code>shock_duration</code>=0.15</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t4">T4</span> #賢者法杖</span><span class="id">sage_staff</span></div>
+<div class="row"><span class="label">取得</span>賢者法杖形態 — 需 #法杖。授予 #賢者法杖 (T4 component signature)。3 隻元素鳥環繞玩家 (r=80, 0.8s 攻擊間隔)，鳥球命中留元素地 (r=70, 2s)。dmg mul_final ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_homing_orb</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>pattern</code>=homing</td></tr><tr><td><code>elemental_familiar</code></td><td>derivative</td><td><code>orbiting_attacker</code></td><td><code>passive</code></td><td class='small'><code>count</code>=3、<code>orbit_r</code>=80.0、<code>orbit_speed</code>=2.0、<code>attack_interval</code>=0.8、<code>detect_radius</code>=400.0</td></tr><tr><td><code>familiar_orb</code></td><td>derivative</td><td><code>component_projectile</code></td><td><code>on_attack:elemental_familiar</code></td><td class='small'><code>count</code>=1、<code>pattern</code>=homing、<code>dmg_mul</code>=1.0、<code>speed_mul</code>=0.6、<code>lifetime_mul</code>=2.0</td></tr><tr><td><code>elemental_zone</code></td><td>derivative</td><td><code>zone_field</code></td><td><code>on_hit:familiar_orb</code></td><td class='small'><code>radius</code>=70.0、<code>duration</code>=2.0、<code>tick_interval</code>=0.5、<code>dmg_mul</code>=0.3、<code>effect</code>=element</td></tr></table>
+</div><div class="card artifact">
+<div class="head"><span class="name"><span class="badge t5">T5</span> #元素創世杖</span><span class="id">elemental_genesis_staff</span></div>
+<div class="row"><span class="label">取得</span>元素創世杖形態 — 需 #賢者法杖。授予 #元素創世杖 (T5 component signature)。沿用 T4 全部 + 元素地到期 spawn 隕石 rain_drop (warning=0.4s, fall=0.3s, r=80)。隕石殺敵不再留元素地。dmg mul_final ×2.0, 範圍 ×1.3。</div>
+<table><tr><th>component</th><th>type</th><th>template</th><th>trigger</th><th>關鍵參數</th></tr><tr><td><code>core_homing_orb</code></td><td>core</td><td><code>projectile</code></td><td><code>—</code></td><td class='small'><code>pattern</code>=homing</td></tr><tr><td><code>elemental_familiar</code></td><td>derivative</td><td><code>orbiting_attacker</code></td><td><code>passive</code></td><td class='small'><code>count</code>=3、<code>orbit_r</code>=80.0、<code>orbit_speed</code>=2.0、<code>attack_interval</code>=0.8、<code>detect_radius</code>=400.0</td></tr><tr><td><code>familiar_orb</code></td><td>derivative</td><td><code>component_projectile</code></td><td><code>on_attack:elemental_familiar</code></td><td class='small'><code>count</code>=1、<code>pattern</code>=homing、<code>dmg_mul</code>=1.0、<code>speed_mul</code>=0.6、<code>lifetime_mul</code>=2.0</td></tr><tr><td><code>elemental_zone</code></td><td>derivative</td><td><code>zone_field</code></td><td><code>on_hit:familiar_orb</code></td><td class='small'><code>radius</code>=70.0、<code>duration</code>=2.0、<code>tick_interval</code>=0.5、<code>dmg_mul</code>=0.3、<code>effect</code>=element</td></tr><tr><td><code>elemental_meteor</code></td><td>derivative</td><td><code>rain_drop</code></td><td><code>on_expire:elemental_zone</code></td><td class='small'><code>delay_warning</code>=0.4、<code>fall_duration</code>=0.3、<code>impact_radius</code>=80.0、<code>dmg_mul</code>=1.2、<code>effect</code>=element</td></tr></table>
+</div></section>
+<section id="talents"><h2>天賦與 Keystones</h2>
+<p class="lede">里程碑天賦（47/48 enabled）依 bucket 分池，於對應里程碑等級抽選（見「玩家與基礎系統」的等級表）。
+keystone（9）於 Lv 30 mixed 池抽選，是 build 的「拱心石」級轉折。</p>
+<h3>Bucket A — 形態 / 材質 / 體型 commit（單向、改變武器 identity）（9）</h3>
+<table><tr><th style="width:170px">天賦</th><th>效果</th><th style="width:220px">資格</th></tr><tr><td>投射形態</td><td>武器化為投射形態，每次攻擊都射出投射物。需要 #短小 武器體型。</td><td class='small'>需 #短小</td></tr><tr><td>環繞形態 <span class="off">(disabled)</span></td><td>投射物轉為環繞玩家自身軌道。需要 #投射物 前置。</td><td class='small'>需 #投射物</td></tr><tr><td>重擊形態</td><td>武器轉為 #重擊：前端集中質量、傷害提升、攻速放慢、hitbox 為圓形。單向 commit。</td><td class='small'>不可有 #重擊</td></tr><tr><td>斬擊形態</td><td>武器邊緣磨利，轉為 #斬擊：傷害 +2、暴擊率 +5%。單向 commit。</td><td class='small'>不可有 #斬擊</td></tr><tr><td>金屬化（天賦）</td><td>武器材質定為金屬：傷害 +4、擊退 +50。一旦選定其他材質無法切換。</td><td class='small'>不可有 #金屬製 / #骨製 / #結晶</td></tr><tr><td>骨製化（天賦）</td><td>武器材質定為骨製：自帶 #流血 與 #持續。一旦選定其他材質無法切換；元素 talent 也不可再選 (D9)。</td><td class='small'>不可有 #金屬製 / #骨製 / #結晶 / #火 / #冰 / #雷 / #毒</td></tr><tr><td>結晶化（天賦）</td><td>武器材質定為結晶：元素傷害 ×1.5、物理傷害 ×0.7。一旦選定其他材質無法切換。</td><td class='small'>不可有 #金屬製 / #骨製 / #結晶</td></tr><tr><td>長兵形態</td><td>武器拉長至 #長兵 band（weapon_length 推到 250+）。單向 commit，不可再選 #短小。</td><td class='small'>不可有 #短小 / #長兵</td></tr><tr><td>短小形態</td><td>武器縮短至 #短小 band（weapon_length 推到 &lt;160）。單向 commit，不可再選 #長兵。</td><td class='small'>不可有 #短小 / #長兵</td></tr></table><h3>Bucket B1 — 元素附身（火/冰/雷/毒，互斥）（4）</h3>
+<table><tr><th style="width:170px">天賦</th><th>效果</th><th style="width:220px">資格</th></tr><tr><td>烈焰附身</td><td>武器附加 #火 屬性，命中敵人時點燃 (3s DOT, 30% 武器傷害/秒)。同時授予 #持續。</td><td class='small'>不可有 #冰 / #雷 / #毒 / #骨製</td></tr><tr><td>雷霆附身</td><td>武器附加 #雷 屬性，命中敵人時造成 0.1 秒短暫麻痺。</td><td class='small'>不可有 #火 / #冰 / #毒 / #骨製</td></tr><tr><td>寒霜附身</td><td>武器附加 #冰 屬性，命中敵人時施加減速 (placeholder 2s 持續時間)。</td><td class='small'>不可有 #火 / #雷 / #毒 / #骨製</td></tr><tr><td>毒霧附身</td><td>武器附加 #毒 屬性，命中敵人時每擊疊一層毒 (placeholder, 上限 5 層)。同時授予 #持續。</td><td class='small'>不可有 #火 / #冰 / #雷 / #骨製</td></tr></table><h3>Bucket B2 — 物理強化核心（1）</h3>
+<table><tr><th style="width:170px">天賦</th><th>效果</th><th style="width:220px">資格</th></tr><tr><td>物理強化</td><td>B-2 核心強化：傷害 ×1.5、暴擊率 +5%、擊退 ×1.2。不限元素 / 骨製。</td><td class='small'>—</td></tr></table><h3>Bucket B3 — 通用 / 條件強化（補底池）（10）</h3>
+<table><tr><th style="width:170px">天賦</th><th>效果</th><th style="width:220px">資格</th></tr><tr><td>鎚的精通</td><td>若武器有 #重擊：hitbox ×1.5，傷害 +10。否則無效。</td><td class='small'>—</td></tr><tr><td>骨刺化</td><td>需要 #骨製。骨製命中流血機率 +25% (base 50% → 75%)。</td><td class='small'>需 #骨製</td></tr><tr><td>流血放大</td><td>需要 #流血。所有流血源的持續時間放大 (placeholder ×1.5)。</td><td class='small'>需 #流血</td></tr><tr><td>武器精通</td><td>通用：武器傷害 ×1.25。任何武器皆可選 (BR3 補底，無 eligibility)。</td><td class='small'>—</td></tr><tr><td>靈巧</td><td>通用：移速 ×1.25、攻速 ×1.15。任何武器皆可選 (BR3 補底，無 eligibility)。</td><td class='small'>—</td></tr><tr><td>致命準度</td><td>通用：暴擊率 +0.10。任何武器皆可選 (BR3 補底，無 eligibility)。</td><td class='small'>—</td></tr><tr><td>節奏掌握</td><td>通用：攻速 ×1.20。任何武器皆可選 (BR3 補底，無 eligibility)。</td><td class='small'>—</td></tr><tr><td>護身</td><td>通用：最大生命 +30。任何武器皆可選 (BR3 補底，無 eligibility)。</td><td class='small'>—</td></tr><tr><td>結晶共鳴增幅</td><td>需要 #結晶。元素傷害放大 (placeholder ×1.5)。</td><td class='small'>需 #結晶</td></tr><tr><td>骨刃增幅</td><td>需要 #骨製 + #斬擊。流血 DPS +50%，暴擊率 +15%。</td><td class='small'>需 #骨製 + #斬擊</td></tr></table><h3>Bucket D — 神器與派生形態（授予 archetype signature）（24）</h3>
+<table><tr><th style="width:170px">天賦</th><th>效果</th><th style="width:220px">資格</th></tr><tr><td>法杖形態</td><td>需 #短小 + #結晶 + 任一元素 (#火/#冰/#雷/#毒)。授予 #法杖 (archetype signature) + 投射形態。攻擊射出大型元素球 homing 追蹤，命中爆破留 2s 元素地。</td><td class='small'>需 #短小 + #結晶</td></tr><tr><td>火焰巨人錘形態</td><td>需 #長兵 + #金屬製 + #重擊 + #火。授予 #火焰巨人錘 (archetype signature)。攻擊改為 3 段同心圓震波 (r=120/200/300, dmg ×1.5/1.0/0.6, t=0/0.4/0.8s)；揮擊速度 ×0.5。</td><td class='small'>需 #長兵 + #金屬製 + #重擊 + #火</td></tr><tr><td>火山巨人錘形態</td><td>需 #火焰巨人錘。授予 #火山巨人錘 (T4 component signature)。核心震波擊殺時噴出火球，火球落地觸發小震波。</td><td class='small'>需 #火焰巨人錘</td></tr><tr><td>遠古泰坦熔爐形態</td><td>需 #火山巨人錘。授予 #遠古泰坦熔爐 (T5 component signature)。震波升級為 5 段；擊殺時留下火山發射器，週期噴出火球與落地震波。</td><td class='small'>需 #火山巨人錘</td></tr><tr><td>飛雷錘形態</td><td>需 #短小 + #金屬製 + #重擊 + #雷 + #投射物。授予 #飛雷錘 (archetype signature)。攻擊改為迴旋鏢 (600px max range, 去回雙段命中)；多鎚散射；所有鎚回手才能再射。</td><td class='small'>需 #短小 + #金屬製 + #重擊 + #雷 + #投射物</td></tr><tr><td>雷神迴旋鎚形態</td><td>需 #飛雷錘。授予 #雷神迴旋鎚 (T4 component signature)。鎚數 +1；鎚到達折返點時 spawn 雷暴 AOE (r=120, 0.4s, apply_shock)；飛行中 r=100 範圍電弧連鎖 (tick 0.1s, chain_depth=3)。dmg mul_final ×1.3。</td><td class='small'>需 #飛雷錘</td></tr><tr><td>鎮獄棒形態</td><td>需 #長兵 + #金屬製 + #打擊 + #揮舞。授予 #鎮獄棒：強化揮舞（弧×1.4 / 距×1.3 / 傷×1.6 / 揮速×0.85）。</td><td class='small'>需 #長兵 + #金屬製 + #打擊 + #揮舞</td></tr><tr><td>鎮獄迴旋棒形態</td><td>授予 #鎮獄迴旋棒：推進短旋（360° + dmg×1.3）。</td><td class='small'>需 #鎮獄棒</td></tr><tr><td>鎮獄・五行旋風形態</td><td>授予 #鎮獄・五行旋風：短旋噴元素旋風（依棒屬性分流；dmg×2.0 / range×1.3）。</td><td class='small'>需 #鎮獄迴旋棒</td></tr><tr><td>毒針形態</td><td>需 #短小 + #結晶 + #斬擊 + #投射物 + #毒。授予 #毒針 (archetype signature)。命中 +2 毒堆疊，cap 10 (override base 5)。</td><td class='small'>需 #短小 + #結晶 + #斬擊 + #投射物 + #毒</td></tr><tr><td>蝕毒爆針形態</td><td>需 #毒針。授予 #蝕毒爆針 (T4 component signature)。命中已疊滿 10 毒的敵人時消耗全部毒層觸發範圍毒爆，毒爆對周圍敵人 +3 毒。</td><td class='small'>需 #毒針</td></tr><tr><td>瘴氣毒華形態</td><td>需 #蝕毒爆針。授予 #瘴氣毒華 (T5 component signature)。毒爆後在引爆位置留下毒雲 (r=120, 5s)，每 0.5s 對範圍內敵人 +2 毒。</td><td class='small'>需 #蝕毒爆針</td></tr><tr><td>名刀吹雪形態</td><td>需 #長兵 + #金屬製 + #斬擊 + #揮舞 + #冰。授予 #名刀吹雪 (archetype signature)。揮砍 swing_arc ×1.3 / weapon_length ×1.8 / hitbox ×1.5；命中已 slow 敵人觸發 freeze (剩餘 slow 時長 × 0.5)；擊殺凍結敵 → 200px 圓 AOE。</td><td class='small'>需 #長兵 + #金屬製 + #斬擊 + #揮舞 + #冰</td></tr><tr><td>吹雪・刃風形態</td><td>需 #名刀吹雪。授予 #吹雪・刃風 (T4 component signature)。每次揮砍發射 3 道冰刀波 (前方扇形散佈, 穿透 1, 射程 300px, 命中 → chill)。凍結敵擊殺 → 200px shatter burst (chill + 80% dmg)。dmg mul_final ×1.3。</td><td class='small'>需 #名刀吹雪</td></tr><tr><td>吹雪・居合零式形態</td><td>需 #吹雪・刃風。授予 #吹雪・居合零式 (T5 component signature)。攻速 ×0.5，360° 三連斬 (t=0/0.1/0.2s)；8 道冰刀波 360° 散射 (射程 400px)；shatter burst r=200→260。dmg mul_final ×2.0、範圍 mul_final ×1.3。</td><td class='small'>需 #吹雪・刃風</td></tr><tr><td>骸骨巨鐮形態</td><td>需 #長兵 + #骨製 + #斬擊 + #重擊。授予 #骸骨巨鐮 (archetype signature)。大扇形巨斬：弧度 ×1.8、範圍 ×1.5、傷害 ×1.6、攻擊間隔 ×1.3、hitbox 變扇形 (cone)；命中 100% 流血（單層）。</td><td class='small'>需 #長兵 + #骨製 + #斬擊 + #重擊</td></tr><tr><td>冥府迴鐮形態</td><td>需 #骸骨巨鐮。授予 #冥府迴鐮 (T4 component signature)。二連斬：第一刀 100%、第二刀反向回掃 50%（間隔 0.25s）。流血每秒傷害 ×2（單層）。dmg ×1.5、攻擊間隔 ×1.7。死神手臂虛影顯現。</td><td class='small'>需 #骸骨巨鐮</td></tr><tr><td>黃泉收割者形態</td><td>需 #冥府迴鐮。授予 #黃泉收割者 (T5 component signature)。死神降臨：全螢幕二連巨斬（100% + 50%）。靈魂收割：擊殺掉落亡魂，每顆永久 +0.1% 攻擊力與流血基礎傷害（無上限）。dmg ×2.0、攻擊間隔 ×2.5。</td><td class='small'>需 #冥府迴鐮</td></tr><tr><td>骨飛斧形態</td><td>需 #短小 + #骨製 + #斬擊 + #投射物。授予 #骨飛斧 (archetype signature)。旋轉穿透無限、0.1s per-enemy multi-hit；流血 cap 5→8；damage ×0.5。</td><td class='small'>需 #短小 + #骨製 + #斬擊 + #投射物</td></tr><tr><td>腥風骨旋形態</td><td>需 #骨飛斧。授予 #腥風骨旋 (T4 component signature)。投擲 4 把短距飛斧，落地形成旋風場 (r=80, 5s)，每 0.3s 對範圍內敵人造傷 + apply_bleed (cap 12)。</td><td class='small'>需 #骨飛斧</td></tr><tr><td>萬骨颶風形態</td><td>需 #腥風骨旋。授予 #萬骨颶風 (T5 component signature)。旋風範圍 80→120；到期散射 3 個移動龍捲風 (4s, r=50)，各自隨機遊走 + tick bleed (cap 16)。</td><td class='small'>需 #腥風骨旋</td></tr><tr><td>天雷神域鎚形態</td><td>需 #雷神迴旋鎚。授予 #天雷神域鎚 (T5 component signature)。自動 360° 連射 (0.4s/發, 隨機方向)；手動齊射 5 鎚；擊殺雷柱 (#降雨 rain_drop, r=90, shock)。dmg mul_final ×2.0, 範圍 ×1.3。</td><td class='small'>需 #雷神迴旋鎚</td></tr><tr><td>賢者法杖形態</td><td>需 #法杖。授予 #賢者法杖 (T4 component signature)。3 隻元素鳥環繞玩家 (r=80, 0.8s 攻擊間隔)，鳥球命中留元素地 (r=70, 2s)。dmg mul_final ×1.3。</td><td class='small'>需 #法杖</td></tr><tr><td>元素創世杖形態</td><td>需 #賢者法杖。授予 #元素創世杖 (T5 component signature)。沿用 T4 全部 + 元素地到期 spawn 隕石 rain_drop (warning=0.4s, fall=0.3s, r=80)。隕石殺敵不再留元素地。dmg mul_final ×2.0, 範圍 ×1.3。</td><td class='small'>需 #賢者法杖</td></tr></table>
+<h3>Keystones（9）</h3>
+<div class="grid wide"><div class="card">
+<div class="head"><span class="name">流順之風</span><span class="id">passive_smooth_wind</span></div>
+<div class="desc">最終結算：攻擊速度 ×1.25、移動速度 ×1.25。</div>
+
+</div><div class="card">
+<div class="head"><span class="name">狂戰士</span><span class="id">passive_berserker</span></div>
+<div class="desc">所有傷害 ×1.5，但受到的傷害也 ×1.5。</div>
+
+</div><div class="card">
+<div class="head"><span class="name">暴擊連鎖</span><span class="id">passive_crit_chain</span></div>
+<div class="desc">暴擊後 1.5 秒內所有攻擊必爆，但全程暴擊倍率 ×0.5。</div>
+
+</div><div class="card">
+<div class="head"><span class="name">餘燼蔓延</span><span class="id">passive_burn_propagation</span></div>
+<div class="desc">需要 #火 武器。點燃的敵人死亡時，火焰擴散到附近 5 個敵人身上（持續 3 秒）。</div>
+<div class="row"><span class="label">需求</span><span class="tag element">#火</span></div><div class="row"><span class="label">grants</span>component <code>ks_ember_spread</code>（area_burst @ on_kill_ignited；radius=150.0、dmg_mul=0.0、effect=ignite、ignite_dps=8.0、ignite_duration=3.0）</div>
+</div><div class="card">
+<div class="head"><span class="name">致命一擊</span><span class="id">passive_lethal_strike</span></div>
+<div class="desc">每 10 秒，下一次攻擊必定暴擊。</div>
+
+</div><div class="card">
+<div class="head"><span class="name">高壓電</span><span class="id">keystone_high_voltage</span></div>
+<div class="desc">需要 #雷 武器。每次攻擊命中時對目標施加更長的麻痺（0.5 秒）。</div>
+<div class="row"><span class="label">需求</span><span class="tag element">#雷</span></div><div class="row"><span class="label">grants</span>component <code>ks_high_voltage_shock</code>（status_apply @ on_hit:weapon_hit；status=shock、shock_duration=0.5）</div>
+</div><div class="card">
+<div class="head"><span class="name">碎冰</span><span class="id">keystone_ice_burst</span></div>
+<div class="desc">需要 #冰 武器。擊殺被冰緩的敵人時，向四面八方射出冰碎投射物，數量隨投射物加成提升。</div>
+<div class="row"><span class="label">需求</span><span class="tag element">#冰</span></div><div class="row"><span class="label">grants</span>component <code>ks_ice_shard</code>（projectile_burst @ on_kill_chilled；count=8、speed=360.0、lifetime=0.5、dmg_mul=0.6、pattern=radial）</div>
+</div><div class="card">
+<div class="head"><span class="name">毒物大師</span><span class="id">keystone_poison_master</span></div>
+<div class="desc">需要 #毒 武器。武器基傷大幅衰減 (×0.1)，但每次命中直接堆滿毒層 (取捨型)。</div>
+<div class="row"><span class="label">需求</span><span class="tag element">#毒</span></div><div class="row"><span class="label">grants</span>modifier {&quot;damage&quot;: 0.1}；component <code>ks_poison_master_fill</code>（status_apply @ on_hit:weapon_hit；status=poison、poison_stacks=5、poison_cap=5）</div>
+</div><div class="card">
+<div class="head"><span class="name">爆血</span><span class="id">keystone_blood_burst</span></div>
+<div class="desc">需要 #流血 武器。擊殺流血中的敵人時，向周圍敵人造成圓形範圍即時傷害。</div>
+<div class="row"><span class="label">需求</span><span class="tag effect">#流血</span></div><div class="row"><span class="label">grants</span>component <code>ks_blood_burst</code>（area_burst @ on_kill_bleed；radius=130.0、dmg_mul=1.0、max_targets=6）</div>
+</div></div></section>
+<section id="effects"><h2>效果框架</h2>
+<p class="lede">Effect = trigger + payload + routing。武器命中後的狀態由 enemy_base.gd 統一結算；數值如下（程式常數）。</p>
+<table>
+<tr><th>狀態</th><th>數值</th><th>視覺（目前）</th></tr>
+<tr><td>點燃 ignite</td><td>DOT，來源武器 30% 傷害/秒 × 3s（B1 火）；走 replace 管線</td><td>橘色 tint + 橘色傷害數字</td></tr>
+<tr><td>冰緩 chill</td><td>減速 40%、持續 2s、堆疊衰減 0.5</td><td>藍色 tint</td></tr>
+<tr><td>冰凍 freeze</td><td>完全停止移動與攻擊（吹雪：剩餘 slow 時長 × 0.5）</td><td>藍色 tint（深）</td></tr>
+<tr><td>感電 shock</td><td>麻痺 0.1s（基礎）；高壓電 keystone 0.5s；shock_chain 連鎖</td><td>受擊定身</td></tr>
+<tr><td>中毒 poison</td><td>每層 0.5 DPS、基礎上限 5 層、持續 3s（可由天賦/神器提高上限）</td><td>綠色傷害數字</td></tr>
+<tr><td>流血 bleed</td><td>武器傷害 50%/秒 × 3s（骨製命中 50% 機率，骨刺化 +25%）；全域單層</td><td>紅色傷害數字</td></tr>
+<tr><td>暈眩 stun / 致盲 blind</td><td>由 status_effect 值觸發（stun_1s / blind_2s）</td><td>—</td></tr>
+</table>
+<table>
+<tr><th>damage types</th><td><code>physical</code>、<code>fire</code>、<code>ice</code>、<code>lightning</code>、<code>poison</code>、<code>dark</code>、<code>light</code></td></tr>
+<tr><th>attack modes</th><td><code>swing</code>、<code>projectile</code>、<code>orbiting</code>、<code>aura</code>（aura / orbiting 目前無 enabled 取得途徑）</td></tr>
+<tr><th>fire patterns</th><td><code>forward</code>、<code>spread</code>、<code>burst</code>、<code>homing</code></td></tr>
+<tr><th>status_effect 值</th><td><code>none</code>、<code>slow_40_2s</code>、<code>stun_1s</code>、<code>blind_2s</code>、<code>poison_5s</code>、<code>shock_chain</code></td></tr>
+<tr><th>dot modes</th><td><code>replace</code>、<code>stack</code></td></tr>
+<tr><th>behaviors</th><td><code>chain</code>（params: max_jumps, jump_range, damage_falloff）</td></tr>
+</table>
+<p class="row">暴擊：暴擊率 = 武器 <code>crit_chance</code> + <code>player.crit_chance</code>；DOT 傷害受 <code>player.dot_damage_mul</code>、流血受 <code>player.bleed_damage_mul</code> 放大。</p></section>
+</main>
+</div>
+</body>
+</html>
