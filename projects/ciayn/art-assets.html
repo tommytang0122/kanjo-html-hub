@@ -98,6 +98,7 @@
 <a href="art-assets.html" class="active">Art 美術需求</a>
   <div class="group">本頁段落</div><a href="#core">第一批：基礎可見性</a>
 <a href="#weapons">武器圖</a>
+<a href="#t12">T1/T2 組合底圖</a>
 <a href="#fx">特效與狀態</a>
 <a href="#ui">UI 與圖示</a>
 <a href="#prio">製作順序</a>
@@ -105,20 +106,19 @@
 <main>
 <header class="page">
   <h1>美術資源需求</h1>
-  <p>給美術：要畫什麼、規格、交付位置 · 美術重置後從零清單 · 2026-06-10</p>
+  <p>給美術：素材清單、交付規格與導入狀態 · 2026-08-13</p>
 </header>
 
-<p class="lede">本頁給美術：遊戲需要哪些圖、規格是什麼、交到哪裡。<strong>2026-06-10 美術重置：先前所有資產已移除</strong>，
-遊戲目前以程序化圖形（幾何色塊 + 武器 telegraph）運行，本頁為從零開始的製作清單。程式掛載點全部健在，圖交付即可接回。</p>
+<p class="lede">本頁給美術：遊戲需要哪些圖、規格是什麼、交到哪裡。2026-08-13 依 runtime 貼圖 registry、component data
+與 <code>assets/</code> 實檔重盤；武器本體分為「已入」「缺」「已入但待修改」，特效則區分正式素材與程序化暫代，避免把有 gameplay 判定誤當成已有美術。</p>
 <div class="note">
-<strong>通用規格</strong>：PNG（透明背景）、長邊約 200–320px（沿用上一版資產的尺寸帶，下表附參考值）、單幀靜態圖 ——
-動畫（呼吸縮放、揮擊、殘影）全部由程式做，不需要逐幀。<strong>風格基準待定</strong>：上一版概念稿已一併移除，新風格由美術主導定義，
-建議先交一張小型風格樣張（1–2 角色 + 1 武器）對齊後再量產。
+<strong>通用規格</strong>：PNG（透明背景）、單幀靜態圖；動畫（呼吸縮放、揮擊、殘影）由程式處理，不需要逐幀。
+武器圖統一攻擊端朝上、握柄朝下、不畫手；可依內容緊裁，顯示尺寸與握點由 runtime metadata 控制。
 </div>
 <div class="note warn">
-<strong>程式接回方式</strong>（交付後工程側一次接完）：角色/怪物/拾取物 → 各 .tscn 的 Sprite2D <code>texture_path</code> 欄位回填路徑；
-武器 → <code>weapon_visual.gd</code> 的 <code>ARTIFACT_TEXTURE_PATHS</code>（signature → PNG）回填；
-最後把 <code>VisualConfig.sprites_enabled</code> 切回 true。
+<strong>程式接回方式</strong>：角色／怪物／拾取物由各 scene 的 Sprite2D 掛載；已交付的 T3–T5 武器走 <code>ARTIFACT_TEXTURE_PATHS</code>；
+T1/T2 走 <code>TIER12_TEXTURE_PATHS</code>＋<code>tier12_weapon.gdshader</code>。世界樹三階尚未進 registry，runtime 目前退回基礎 <code>Stick.png</code>。
+所有武器圖共用 <code>VisualConfig.sprites_enabled</code> 開關。
 </div>
 <table>
 <tr><th>優先級</th><th>意義</th></tr>
@@ -127,29 +127,100 @@
 <tr><td><span class="prio p3">P3</span></td><td>後期 / 低頻</td></tr>
 </table>
 <section id="core"><h2><span class="prio p1">P1</span> 第一批：基礎可見性（5 張）</h2>
-<p class="row">玩家、三種怪物、XP 寶石 —— 遊戲畫面的最低限度資產組。參考尺寸為上一版資產的實際大小（遊戲內另有 0.15–0.16 縮放）。</p>
+<p class="row">玩家、三種怪物、XP 寶石 —— 遊戲畫面的最低限度資產組。全數已入庫並接線（玩家為 MainCharacter 多層 rig；XP 寶石 2026-08-10 接回貼圖）。</p>
 <table>
-<tr><th>對象</th><th>交付路徑</th><th>參考尺寸</th><th>備註</th></tr>
-<tr><td>玩家</td><td><code>assets/art/characters/player.png</code></td><td class="num">~271×242</td><td>正面朝下視角；移動/dash 動態由程式處理</td></tr>
-<tr><td>史萊姆 slime</td><td><code>assets/art/enemies/slime.png</code></td><td class="num">~227×181</td><td>基礎雜兵（綠系）</td></tr>
-<tr><td>疾爪 quick_claw</td><td><code>assets/art/enemies/quick_claw.png</code></td><td class="num">~254×181</td><td>高速突進型（紅系）</td></tr>
-<tr><td>遊俠 ranger</td><td><code>assets/art/enemies/ranger.png</code></td><td class="num">~248×241</td><td>遠程型（紫系），會發射投射物</td></tr>
-<tr><td>XP 寶石</td><td><code>assets/art/pickups/xp_gem.png</code></td><td class="num">~136×200</td><td>地面掉落物，磁吸飛向玩家</td></tr>
+<tr><th>對象</th><th>入庫路徑</th><th>狀態</th><th>備註</th></tr>
+<tr><td>玩家</td><td><code>assets/sprites/MainCharacter/</code></td><td><span class='badge t3'>已入</span></td><td>11 件多層 rig（頭/手套/靴/領帶…），移動/dash 動態由程式處理</td></tr>
+<tr><td>史萊姆 slime</td><td><code>assets/sprites/slime.png</code></td><td><span class='badge t3'>已入</span></td><td>基礎雜兵（綠系）</td></tr>
+<tr><td>疾爪 quick_claw</td><td><code>assets/sprites/quick-claw.png</code></td><td><span class='badge t3'>已入</span></td><td>高速突進型（紅系）</td></tr>
+<tr><td>遊俠 ranger</td><td><code>assets/sprites/laser-skull.png</code></td><td><span class='badge t3'>已入</span></td><td>遠程型，會發射投射物</td></tr>
+<tr><td>XP 寶石</td><td><code>assets/sprites/XPGem.png</code></td><td><span class='badge t3'>已入</span></td><td>地面掉落物，磁吸飛向玩家；同類的亡魂 pickup（<code>soul_pickup.gd</code>）仍是程式白光點 placeholder</td></tr>
 </table>
 </section>
 <section id="weapons"><h2>武器圖</h2>
-<p class="row">接入點：<code>game/player/weapon_visual.gd</code> 的 <code>ARTIFACT_TEXTURE_PATHS</code>（signature tag → PNG，目前為空表待回填）。
-武器圖會被程式縮放至 72px 顯示、加上待機脈動與揮擊動畫。<strong>畫武器本體即可，不用畫特效</strong>（揮擊殘影、震波等由程式生成）。
-參考尺寸帶：長邊 220–320px。</p>
-<h3><span class="prio p1">P1</span> 第二批：T3 神器（8 個視覺，全缺）</h3>
-<table><tr><th>神器</th><th>signature</th><th>交付檔名</th><th>狀態</th></tr><tr><td>火焰巨人錘</td><td><code>#火焰巨人錘</code></td><td><code>artifact_fire_giant_hammer.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>鎮獄棒</td><td><code>#鎮獄棒</code></td><td><code>artifact_judgment_staff.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>飛雷錘</td><td><code>#飛雷錘</code></td><td><code>artifact_flying_thunder_mace.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>骸骨巨鐮</td><td><code>#骸骨巨鐮</code></td><td><code>artifact_bone_reaper.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>骨飛斧</td><td><code>#骨飛斧</code></td><td><code>artifact_bone_flying_axe.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>名刀吹雪</td><td><code>#名刀吹雪</code></td><td><code>artifact_fubuki.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>毒針</td><td><code>#毒針</code></td><td><code>artifact_poison_needle.png</code></td><td><span class='miss'>缺</span></td></tr><tr><td>火法杖 / 冰法杖 / 雷法杖 / 毒法杖</td><td><code>#法杖</code></td><td><code>artifact_staff.png（共用）或 4 張元素變體</code></td><td><span class='miss'>缺</span></td></tr></table>
-<h3><span class="prio p1">P1</span> 第三批：T4 / T5 派生武器圖（16 張，全缺）</h3>
-<p class="row">玩家拿到 T4/T5 派生時的視覺升級回饋。方向建議：同一條路線的 T3→T4→T5 保持剪影延續、量感與細節遞增。</p>
-<table><tr><th>signature</th><th>交付檔名</th><th>狀態</th></tr><tr><td><span class='badge t4'>T4</span> #鎮獄迴旋棒</td><td><code>artifact_judgment_whirl.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #鎮獄・五行旋風</td><td><code>artifact_judgment_storm.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #火山巨人錘</td><td><code>artifact_fire_volcano_hammer.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #蝕毒爆針</td><td><code>artifact_venom_detonator.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #瘴氣毒華</td><td><code>artifact_miasma_bloom.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #腥風骨旋</td><td><code>artifact_crimson_cyclone_axe.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #萬骨颶風</td><td><code>artifact_bone_hurricane.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #吹雪・刃風</td><td><code>artifact_fubuki_blade_wind.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #吹雪・居合零式</td><td><code>artifact_fubuki_iai_zero.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #遠古泰坦熔爐</td><td><code>artifact_fire_ancient_titan_forge.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #冥府迴鐮</td><td><code>artifact_netherworld_reaper.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #黃泉收割者</td><td><code>artifact_gravewarden_reaper.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #雷神迴旋鎚</td><td><code>artifact_thunder_god_mace.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #天雷神域鎚</td><td><code>artifact_thunder_realm_mace.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #賢者法杖</td><td><code>artifact_sage_staff.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #元素創世杖</td><td><code>artifact_elemental_genesis_staff.png</code>（建議檔名）</td><td><span class='miss'>缺</span></td></tr></table>
+<p class="row">接入點：<code>game/player/weapon_visual.gd</code> 的 <code>ARTIFACT_TEXTURE_PATHS</code>（signature tag → PNG）。
+武器圖會依階級／形態縮放、加上待機脈動與揮擊動畫。<strong>畫武器本體即可，不用畫特效</strong>（揮擊殘影、震波等由程式生成）。</p>
+<div class="stats">
+<div class="stat"><div class="k">T0 + T1/T2 本體</div><div class="v">13 / 13</div><div class="small">Stick.png + 12 張組合底圖</div></div>
+<div class="stat"><div class="k">T3–T5 神器本體</div><div class="v">27 / 30</div><div class="small">缺 3 張</div></div>
+<div class="stat"><div class="k">待修改</div><div class="v">3</div><div class="small">吹雪 T3 / T4 / T5</div></div>
+<div class="stat"><div class="k">正式武器專屬 VFX</div><div class="v">0</div><div class="small">僅有通用命中 spritesheet ×1</div></div>
+</div>
+<div class="note warn"><strong>吹雪系列待修改（2026-08-13）</strong>：<code>artifact_fubuki.png</code>、<code>artifact_fubuki_blade_wind.png</code>、
+<code>artifact_fubuki_iai_zero.png</code> 都已入庫並接線，但尚未通過本輪美術驗收，三階皆標記「待修改」。替換或重裁後必須重測
+<code>GRIP_ANCHORS</code>、<code>LONG_WEAPON_CONTACT_ANCHORS</code> 與吹雪專用 155° idle 方向。</div>
+<div class="note warn"><strong>唯一缺圖武器線：世界樹</strong>。T3 世界樹枝、T4 萬藤叢生、T5 世界樹化身共缺 3 張；三個 signature 也尚未列入
+<code>SIGNATURE_PRIORITY</code> / <code>ARTIFACT_TEXTURE_PATHS</code>，因此目前不是顯示空白，而是一路退回基礎 <code>Stick.png</code>。</div>
+<h3><span class="prio p1">P1</span> T3 神器（12 個 variant：11 已入、1 缺）</h3>
+<table><tr><th>神器</th><th>signature</th><th>交付檔名</th><th>入庫／驗收</th></tr><tr><td>火焰巨人錘</td><td><code>#火焰巨人錘</code></td><td><code>artifact_fire_giant_hammer.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>鎮獄棒</td><td><code>#鎮獄棒</code></td><td><code>artifact_judgment_staff.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>飛雷錘</td><td><code>#飛雷錘</code></td><td><code>artifact_flying_thunder_mace.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>骸骨巨鐮</td><td><code>#骸骨巨鐮</code></td><td><code>artifact_bone_reaper.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>骨飛斧</td><td><code>#骨飛斧</code></td><td><code>artifact_bone_flying_axe.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>名刀吹雪</td><td><code>#名刀吹雪</code></td><td><code>artifact_fubuki.png</code></td><td><span class='badge t3'>已入</span> <span class='prio p2'>待修改</span></td></tr><tr><td>毒針</td><td><code>#毒針</code></td><td><code>artifact_poison_needle.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>火法杖 / 冰法杖 / 雷法杖 / 毒法杖</td><td><code>#法杖</code></td><td><code>artifact_staff_fire.png / artifact_staff_ice.png / artifact_staff_lightening.png / artifact_staff_poison.png</code></td><td><span class='badge t3'>已入</span></td></tr><tr><td>世界樹枝</td><td><code>#世界樹枝</code></td><td><code>artifact_worldtree_branch.png</code></td><td><span class='miss'>缺</span></td></tr></table>
+<h3><span class="prio p1">P1</span> 第三批：T4 / T5 派生武器圖</h3>
+<p class="row">共 18 張（T4 ×9、T5 ×9），現有 16 張、世界樹缺 2 張。方向建議：同一路線 T3→T4→T5 保持剪影延續、量感與細節遞增。</p>
+<table><tr><th>signature</th><th>交付檔名</th><th>入庫／驗收</th></tr><tr><td><span class='badge t4'>T4</span> #鎮獄迴旋棒</td><td><code>artifact_judgment_whirl.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #鎮獄・五行旋風</td><td><code>artifact_judgment_storm.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #萬藤叢生</td><td><code>artifact_vine_overgrowth.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t5'>T5</span> #世界樹化身</td><td><code>artifact_worldtree_avatar.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='miss'>缺</span></td></tr><tr><td><span class='badge t4'>T4</span> #火山巨人錘</td><td><code>artifact_fire_volcano_hammer.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #蝕毒爆針</td><td><code>artifact_venom_detonator.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #瘴氣毒華</td><td><code>artifact_miasma_bloom.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #腥風骨旋</td><td><code>artifact_crimson_cyclone_axe.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #萬骨颶風</td><td><code>artifact_bone_hurricane.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #吹雪・刃風</td><td><code>artifact_fubuki_blade_wind.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span> <span class='prio p2'>待修改</span></td></tr><tr><td><span class='badge t5'>T5</span> #吹雪・居合零式</td><td><code>artifact_fubuki_iai_zero.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span> <span class='prio p2'>待修改</span></td></tr><tr><td><span class='badge t5'>T5</span> #遠古泰坦熔爐</td><td><code>artifact_fire_ancient_titan_forge.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #冥府迴鐮</td><td><code>artifact_netherworld_reaper.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #黃泉收割者</td><td><code>artifact_gravewarden_reaper.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #雷神迴旋錘</td><td><code>artifact_thunder_god_mace.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #天雷神域錘</td><td><code>artifact_thunder_realm_mace.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t4'>T4</span> #賢者法杖</td><td><code>artifact_sage_staff.png</code>（交付至 <code>assets/sprites/WeaponTier4/</code>）</td><td><span class='badge t3'>已入</span></td></tr><tr><td><span class='badge t5'>T5</span> #元素創世杖</td><td><code>artifact_elemental_genesis_staff.png</code>（交付至 <code>assets/sprites/WeaponTier5/</code>）</td><td><span class='badge t3'>已入</span></td></tr></table>
 </section>
-<section id="fx"><h2>特效與狀態視覺 <span class="prio p2">P2</span></h2>
-<p class="row">以下視覺目前<strong>全部由程式程序化繪製</strong>（幾何圖形 + 調色），遊戲已可玩；美術介入屬「升級」性質，需要搭配程式把繪製點換成貼圖/序列幀，建議與工程師逐項排程。半徑數值供尺寸比例參考（1px = 遊戲世界 1px）。</p>
-<table><tr><th>來源</th><th>需要的視覺元素</th></tr><tr><td>火焰巨人錘線</td><td>3 段同心圓震波（r=120/200/300）、火球（速度 300）、火球落地小震波（r=60）、T5 火山發射器</td></tr><tr><td>法杖線</td><td>元素球投射（homing）、命中爆破、元素地面（r=70，2s）、T4 三隻環繞元素鳥（r=80）、T5 隕石（警示圈 0.4s → 落下，r=80）</td></tr><tr><td>飛雷錘線</td><td>迴旋鏢飛行軌跡、T4 折返點雷暴 AOE（r=120）、飛行電弧連鎖（r=100）、T5 擊殺雷柱（r=90）</td></tr><tr><td>鎮獄棒線</td><td>強化揮擊、T4 360° 短旋 + 推進殘影、T5 元素旋風（r=60 移動體，依元素變色）</td></tr><tr><td>吹雪線</td><td>凍結爆裂（r=200）、T4 冰刀波（3 道扇形，射程 300）、T5 360° 三連斬 + 8 道冰刀</td></tr><tr><td>毒針線</td><td>毒堆疊命中感、T4 毒爆（消耗 10 層）、T5 毒雲（r=120，5s）</td></tr><tr><td>骸骨巨鐮線</td><td>大扇形巨斬、T4 二連斬 + 死神手臂虛影、T5 全螢幕巨斬 + 亡魂掉落物（靈魂收割）</td></tr><tr><td>骨飛斧線</td><td>旋轉飛斧、T4 落地旋風場（r=80，5s）、T5 移動龍捲風（r=50 ×3）</td></tr><tr><td>Keystones</td><td>餘燼蔓延（r=150 火擴散）、碎冰（8 向冰碎投射）、爆血（r=130 紅爆）、高壓電（麻痺特效）</td></tr><tr><td>通用</td><td>敵方投射物（ranger）、玩家投射物、擊中閃白、擊退、damage popup（已有字體配色：物理白/點燃橘/中毒綠/流血紅）</td></tr></table>
+<section id="t12"><h2><span class="prio p1">P1</span> T1/T2 組合底圖（12 張共用圖 → 覆蓋全部 215 種武器）</h2>
+<p class="row">T1（47 種）與 T2（168 種）共 215 種武器；視覺拆成 <strong>形狀 4 × 長度 3</strong> 的底圖、4 種材質色與 5 種 T2 affinity 光效（實際可達組合仍依 affinity matrix 約束）。
+美術只畫「形狀 × 長度」的 <strong>12 張共用底圖</strong>；shader 會先取 luminance，再套材質色，元素由程式加高光／外緣 glow。
+之後新增材質或元素<strong>零繪圖成本</strong>。</p>
+<h3>合成原理（瀏覽器示意：同一張底圖明度 × 四種材質色）</h3>
+<table><tr><td style='text-align:center'><svg viewBox="0 0 60 130" width="52" height="112" xmlns="http://www.w3.org/2000/svg">
+<polygon points="30,4 40,22 40,78 20,78 20,22" fill="#e9e9e9" stroke="#8a8a8a" stroke-width="2"/>
+<line x1="30" y1="14" x2="30" y2="74" stroke="#bdbdbd" stroke-width="3"/>
+<rect x="12" y="78" width="36" height="9" rx="3" fill="#9a9a9a"/>
+<rect x="25" y="87" width="10" height="28" rx="4" fill="#6f6f6f"/>
+<circle cx="30" cy="121" r="7" fill="#8f8f8f"/>
+</svg><br><span class='small'>來源底圖（shader 先取明度）</span></td><td style='text-align:center'><span style='position:relative;display:inline-block;isolation:isolate'><svg viewBox="0 0 60 130" width="52" height="112" xmlns="http://www.w3.org/2000/svg">
+<polygon points="30,4 40,22 40,78 20,78 20,22" fill="#e9e9e9" stroke="#8a8a8a" stroke-width="2"/>
+<line x1="30" y1="14" x2="30" y2="74" stroke="#bdbdbd" stroke-width="3"/>
+<rect x="12" y="78" width="36" height="9" rx="3" fill="#9a9a9a"/>
+<rect x="25" y="87" width="10" height="28" rx="4" fill="#6f6f6f"/>
+<circle cx="30" cy="121" r="7" fill="#8f8f8f"/>
+</svg><span style='position:absolute;inset:0;background:#a97c50;mix-blend-mode:multiply'></span></span><br><span class='small'>木製 wood</span></td><td style='text-align:center'><span style='position:relative;display:inline-block;isolation:isolate'><svg viewBox="0 0 60 130" width="52" height="112" xmlns="http://www.w3.org/2000/svg">
+<polygon points="30,4 40,22 40,78 20,78 20,22" fill="#e9e9e9" stroke="#8a8a8a" stroke-width="2"/>
+<line x1="30" y1="14" x2="30" y2="74" stroke="#bdbdbd" stroke-width="3"/>
+<rect x="12" y="78" width="36" height="9" rx="3" fill="#9a9a9a"/>
+<rect x="25" y="87" width="10" height="28" rx="4" fill="#6f6f6f"/>
+<circle cx="30" cy="121" r="7" fill="#8f8f8f"/>
+</svg><span style='position:absolute;inset:0;background:#b9c2cc;mix-blend-mode:multiply'></span></span><br><span class='small'>鐵製 metal</span></td><td style='text-align:center'><span style='position:relative;display:inline-block;isolation:isolate'><svg viewBox="0 0 60 130" width="52" height="112" xmlns="http://www.w3.org/2000/svg">
+<polygon points="30,4 40,22 40,78 20,78 20,22" fill="#e9e9e9" stroke="#8a8a8a" stroke-width="2"/>
+<line x1="30" y1="14" x2="30" y2="74" stroke="#bdbdbd" stroke-width="3"/>
+<rect x="12" y="78" width="36" height="9" rx="3" fill="#9a9a9a"/>
+<rect x="25" y="87" width="10" height="28" rx="4" fill="#6f6f6f"/>
+<circle cx="30" cy="121" r="7" fill="#8f8f8f"/>
+</svg><span style='position:absolute;inset:0;background:#e8e2d0;mix-blend-mode:multiply'></span></span><br><span class='small'>骨製 bone</span></td><td style='text-align:center'><span style='position:relative;display:inline-block;isolation:isolate'><svg viewBox="0 0 60 130" width="52" height="112" xmlns="http://www.w3.org/2000/svg">
+<polygon points="30,4 40,22 40,78 20,78 20,22" fill="#e9e9e9" stroke="#8a8a8a" stroke-width="2"/>
+<line x1="30" y1="14" x2="30" y2="74" stroke="#bdbdbd" stroke-width="3"/>
+<rect x="12" y="78" width="36" height="9" rx="3" fill="#9a9a9a"/>
+<rect x="25" y="87" width="10" height="28" rx="4" fill="#6f6f6f"/>
+<circle cx="30" cy="121" r="7" fill="#8f8f8f"/>
+</svg><span style='position:absolute;inset:0;background:#b07ce8;mix-blend-mode:multiply'></span></span><br><span class='small'>晶製 crystal</span></td></tr></table>
+<div class="note">
+<strong>明度層次是品質關鍵</strong>：shader 會先把來源色轉成 luminance，因此原稿可帶工作色，但最終材質由程式決定。中間調保留足夠層次；
+高光維持明亮；<strong>避免大面積純黑</strong>（調色後仍會死黑無層次）。輪廓線可用深灰。
+</div>
+<h3>12 張清單</h3>
+<table><tr><th>形狀</th><th>short 短小</th><th>mid 中等</th><th>long 長兵</th><th>狀態</th></tr><tr><td>stick 棒</td><td><code>base_stick_short.png</code><br><span class='small'>短棍——圓桿、端部略粗</span></td><td><code>base_stick_mid.png</code><br><span class='small'>長棒/手杖——可帶節疤</span></td><td><code>base_stick_long.png</code><br><span class='small'>長桿旅杖</span></td><td><span class='badge t3'>已入</span></td></tr><tr><td>sword 劍</td><td><code>base_sword_short.png</code><br><span class='small'>短劍/匕首</span></td><td><code>base_sword_mid.png</code><br><span class='small'>標準長劍</span></td><td><code>base_sword_long.png</code><br><span class='small'>大劍/雙手劍</span></td><td><span class='badge t3'>已入</span></td></tr><tr><td>mace 錘</td><td><code>base_mace_short.png</code><br><span class='small'>單手手錘</span></td><td><code>base_mace_mid.png</code><br><span class='small'>釘頭錘</span></td><td><code>base_mace_long.png</code><br><span class='small'>長柄巨錘</span></td><td><span class='badge t3'>已入</span></td></tr><tr><td>axe 斧</td><td><code>base_axe_short.png</code><br><span class='small'>手斧</span></td><td><code>base_axe_mid.png</code><br><span class='small'>戰斧</span></td><td><code>base_axe_long.png</code><br><span class='small'>長柄大斧</span></td><td><span class='badge t3'>已入</span></td></tr></table>
+<p class="row">造型自由發揮，但<strong>四種形狀的剪影必須在小尺寸（遊戲內 64–140px）可互相區辨</strong>；同形狀三個長度保持造型血緣（short→long 是同把武器的放大進化感）。</p>
+<h3>繪製規格</h3>
+<table>
+<tr><th>項目</th><th>規格</th></tr>
+<tr><td>畫布</td><td>RGBA PNG 透明背景，可緊裁；武器垂直擺放、攻擊端朝上</td></tr>
+<tr><td>顯示尺寸</td><td>引擎依長度 band 統一縮放：short 68px、mid 94px、long 138px</td></tr>
+<tr><td>手</td><td><strong>不畫手</strong>（程式手元件會疊上握點），握把區留在畫面下 1/3，握把朝畫布下緣（拳頭朝下慣例）</td></tr>
+<tr><td>握點</td><td>每張量測握把中心的歸一化座標 (x/寬, y/高)，由 <code>weapon_visual.gd</code> 的 <code>TIER12_GRIP_ANCHORS</code> 維護</td></tr>
+<tr><td>特效</td><td>不用畫——元素光、揮擊殘影、粒子全部程式生成</td></tr>
+</table>
+<h3>程式端調色參考（美術不用做，供對照成品想像）</h3>
+<p class="row">材質色（multiply）：<span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:3px;background:#a97c50;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>木製 wood <code>#a97c50</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:3px;background:#b9c2cc;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>鐵製 metal <code>#b9c2cc</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:3px;background:#e8e2d0;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>骨製 bone <code>#e8e2d0</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:3px;background:#b07ce8;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>晶製 crystal <code>#b07ce8</code></span></p>
+<p class="row">元素光（tint/glow）：<span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:50%;background:#ff7a33;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>火 <code>#ff7a33</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:50%;background:#66b3ff;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>冰 <code>#66b3ff</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:50%;background:#ffd93b;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>雷 <code>#ffd93b</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:50%;background:#6fd44a;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>毒 <code>#6fd44a</code></span><span style='display:inline-block;margin:4px 10px 4px 0'><span style='display:inline-block;width:14px;height:14px;border-radius:50%;background:#f2f2f2;vertical-align:-2px;margin-right:5px;border:1px solid #0003'></span>物理 <code>#f2f2f2</code></span></p>
+<h3>交付</h3>
+<p class="row">路徑：<code>assets/sprites/WeaponTier1/</code>，檔名如上表。新增或重裁圖片時，需同步重測 <code>TIER12_GRIP_ANCHORS</code>。</p>
+<p class="row">選配（v1.5，可後補）：元素徽記 4 張——火焰紋 / 冰晶 / 電弧 / 毒滴，白色單色 48×48，程式會 tint 後貼在刃部。</p>
+</section>
+<section id="fx"><h2>特效與狀態視覺</h2>
+<p class="row">結論：武器專屬正式 VFX 素材目前為 <strong>0</strong>；全專案只有一張通用命中 spritesheet
+<code>assets/sprites/vfx/GenericImpact_SpriteSheet.png</code>。下表的 gameplay 與 telegraph 已可用，但都是幾何、調色、武器貼圖重用或完全不可見的暫代。
+美術交付後仍需工程接線，不能只把檔案放進資料夾。</p>
+<table><tr><th>武器線</th><th>runtime 現況</th><th>美術／特效缺口</th><th>優先</th></tr><tr><td>火焰巨人錘線</td><td><span class='badge t2'>程序化暫代</span><br>武器拖影；震波為 Line2D 同心圓；火球沿用多邊形投射物；T5 發射器為紅色圓盤。</td><td><span class='miss'>缺正式素材</span><br>震波紋理／碎石、火球與尾焰、落地爆炸、火山發射器。</td><td><span class='prio p2'>P2</span></td></tr><tr><td>法杖線</td><td><span class='badge t2'>程序化暫代</span><br>元素球為 Polygon2D＋outline＋Line2D trail；地面為調色圓盤。T4 三個 familiar 只有不可見 Node2D；T5 隕石只有黃色預警圓與通用命中。</td><td><span class='miss'>缺正式素材</span><br>元素球／地面效果；T4 familiar 可見本體；T5 隕石落下本體、尾跡與元素落地爆發。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>飛雷錘線</td><td><span class='badge t2'>程序化暫代</span><br>飛行本體重用武器 PNG；折返雷暴為通用橘環；lightning_web 有傷害但沒有弧線；T5 雷雨只有黃色預警圓與通用命中。</td><td><span class='miss'>缺正式素材</span><br>折返雷暴、飛行電網／連鎖電弧、T5 雷柱／落雷。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>鎮獄棒線</td><td><span class='badge t2'>程序化暫代</span><br>T4 以武器 sprite 動畫＋dash trail 表現；T5 元素旋風只是隨機移動的 Polygon2D 圓盤，視覺未依元素換色。</td><td><span class='miss'>缺正式素材</span><br>360° 棍風；火／冰／雷／毒／物理五套可 tint 旋風與尾跡。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>吹雪線</td><td><span class='badge t2'>程序化暫代</span><br>T3 冰爆為藍色實心圓＋Line2D 環；T4 冰刀波為藍色矩形；T5 居合為三道藍色圓環，命中共用通用爆點。</td><td><span class='miss'>缺正式素材</span><br>冰晶爆裂、弧形刀波、居合斬線／殘光、碎冰命中特效；武器本體三階另標待修改。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>毒針線</td><td><span class='badge t2'>程序化暫代</span><br>飛行本體重用武器 PNG；連鎖是綠色 Line2D；毒爆為通用橘環；毒雲是半透明綠圓盤。</td><td><span class='miss'>缺正式素材</span><br>毒液命中／疊層、毒爆、具流動感的毒雲與腐蝕粒子。</td><td><span class='prio p2'>P2</span></td></tr><tr><td>骸骨巨鐮線</td><td><span class='badge t2'>程序化暫代</span><br>揮砍拖影重用武器 PNG；T4 使用 cone telegraph；T5 是全螢幕紫色矩形閃光＋直線，程式註解明列 placeholder；亡魂為 5px 白色多邊形。</td><td><span class='miss'>缺正式素材</span><br>死神手臂／巨鐮斬弧、全螢幕 death sweep、亡魂 pickup。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>骨飛斧線</td><td><span class='badge t2'>程序化暫代</span><br>投射本體重用武器 PNG 並旋轉；T4 旋風場為固定綠圓盤；T5 龍捲風為紅褐圓盤。</td><td><span class='miss'>缺正式素材</span><br>骨屑旋風場、龍捲風本體／尾跡、落地爆發。</td><td><span class='prio p2'>P2</span></td></tr><tr><td>世界樹線</td><td><span class='badge t2'>程序化暫代</span><br>本體退回 Stick.png；藤蔓為綠色 Polygon2D 圓盤＋粗 Line2D 蛇行尾跡，場地亦為圓盤。</td><td><span class='miss'>缺正式素材</span><br>T3/T4/T5 武器本體共 3 張；藤蔓頭／蔓身／葉片、地面生長、澆水成長與共生回血回饋。</td><td><span class='prio p1'>P1</span></td></tr><tr><td>通用</td><td><span class='badge t2'>程序化暫代</span><br>GenericImpact_SpriteSheet.png（3×3）是目前唯一正式 VFX 貼圖；其餘共用命中、telegraph、元素地面與狀態回饋主要靠幾何／tint／傷害跳字。</td><td><span class='miss'>缺正式素材</span><br>元素／物理命中變體、暴擊強化、投射物 trail、狀態粒子；保留 generic impact 作 fallback。</td><td><span class='prio p2'>P2</span></td></tr></table>
 <h3>狀態效果視覺（目前為色調疊加）</h3>
 <table><tr><th>狀態</th><th>目前表現</th><th>美術需求（P3）</th></tr>
 <tr><td>點燃 ignite</td><td>橘色 tint + 橘色傷害數字</td><td rowspan="6">每狀態一個小型 icon（24–32px），供未來敵人頭上狀態列 / HUD 使用。目前程式無 icon 接入點，列為儲備需求。</td></tr>
@@ -161,23 +232,38 @@
 </table>
 </section>
 <section id="ui"><h2>UI 與圖示</h2>
+<p class="row">2026-08-10 盤點結論：UI 層目前<strong>零美術素材</strong> —— 全專案沒有 Theme 資源、自訂字型檔或任何貼圖類 UI 節點（TextureRect / TextureProgressBar / NinePatchRect 均未使用）。所有畫面 = Godot 預設主題 + Label / ColorRect / ProgressBar + 一份程式 StyleBoxFlat（<code>game/ui/card_style.gd</code>，升級卡 / 屬性卡 / 里程碑三畫面共用）。中文介面全靠引擎預設字型渲染。title screen / pause / settings 畫面尚不存在（程式面也沒有），屆時另出需求。</p>
+<h3><span class="prio p1">P1</span> UI 底盤（約 5 組 —— 讓整個 UI 脫離引擎預設外觀的最小集合）</h3>
+<table>
+<tr><th>項目</th><th>優先級</th><th>接入點</th><th>現況</th></tr>
+<tr><td>CJK 字型檔 + Theme 資源</td><td><span class="prio p1">P1</span></td><td><code>project.godot</code> gui/theme（目前無設定）</td><td>介面大量中文，靠 Godot 預設字型渲染；一套字型即可全域升級質感</td></tr>
+<tr><td>HP / XP 條框＋填充（九宮格 ×2）</td><td><span class="prio p1">P1</span></td><td><code>hud.tscn</code> 兩個 ProgressBar</td><td>引擎預設 ProgressBar 皮膚；可附心形 / 寶石小 icon</td></tr>
+<tr><td>選卡卡框（NinePatch，normal / hover / pressed）</td><td><span class="prio p1">P1</span></td><td><code>card_style.gd</code> 改 StyleBoxTexture</td><td>StyleBoxFlat 圓角框；一組圖同時升級三個獎勵畫面</td></tr>
+<tr><td>結算畫面版面（WIN / GAME OVER 標題字＋按鈕）</td><td><span class="prio p1">P1</span></td><td><code>end_run_ui.tscn</code></td><td>完成度最低：標題連字級都沒調，三顆按鈕連 CardStyle 都沒套</td></tr>
+<tr><td>Toast 底板（配方解鎖 / tag 變化提示）</td><td><span class="prio p2">P2</span></td><td><code>hud.gd</code> RecipeToast</td><td>裸 Label 開關 visible，無底框無動畫</td></tr>
+</table>
+<h3>圖示（P2–P3）</h3>
 <table>
 <tr><th>項目</th><th>數量</th><th>優先級</th><th>備註</th></tr>
-<tr><td>升級選單 modifier 圖示</td><td>22</td><td><span class="prio p3">P3</span></td><td>目前選單純文字。可先做「軸」級圖示 7 個（shape/material/wrap/element/attachment/form/passive）再細化。</td></tr>
-<tr><td>里程碑天賦圖示</td><td>47</td><td><span class="prio p3">P3</span></td><td>建議先做 bucket 級 5 個（A / B1 / B2 / B3 / D）。</td></tr>
-<tr><td>Keystone 圖示</td><td>9</td><td><span class="prio p3">P3</span></td><td>keystone 是 build 轉折點，值得每顆獨立圖示。</td></tr>
-<tr><td>圖鑑縮圖</td><td>—</td><td>—</td><td>直接重用武器圖，不需新資產。</td></tr>
+<tr><td>升級選單「軸」圖示</td><td>7</td><td><span class="prio p2">P2</span></td><td>shape / material / wrap / element / attachment / form / passive；接入點 <code>level_up_ui.gd</code> <code>_axis_label()</code>（現為純文字）。modifier 逐顆圖示（7 顆）之後再細化。</td></tr>
+<tr><td>圖鑑武器縮圖</td><td>0 張（重用武器圖）</td><td><span class="prio p2">P2</span></td><td>不需新資產，但 <code>pokedex.gd</code> 尚未接任何 texture（現用 ✓ / ??? 文字），需程式接 TextureRect + archetype→png 對應。</td></tr>
+<tr><td>里程碑天賦圖示</td><td>75</td><td><span class="prio p3">P3</span></td><td>建議先做 bucket 級 5 個（A / B1 / B2 / B3 / D）。</td></tr>
+<tr><td>Keystone 圖示</td><td>9</td><td><span class="prio p3">P3</span></td><td>keystone 是 build 轉折點，值得每顆獨立圖示。目前 <code>milestone_ui.gd</code> 無 icon 接入點。</td></tr>
 <tr><td>Dash 冷卻指示</td><td>1</td><td><span class="prio p3">P3</span></td><td>目前無視覺提示。</td></tr>
 </table>
+<p class="row">狀態 icon ×6（點燃 / 冰緩 / 冰凍 / 感電 / 中毒 / 流血）見上方「特效與狀態視覺」段。</p>
 </section>
 <section id="prio"><h2>建議製作順序</h2>
 <table>
 <tr><th>批次</th><th>內容</th><th>張數</th></tr>
 <tr><td><span class="prio p1">P1</span> 風格樣張</td><td>1–2 角色 + 1 武器的小樣，先對齊新美術方向</td><td class="num">1 組</td></tr>
-<tr><td><span class="prio p1">P1</span> 第一批</td><td>基礎可見性：玩家 + 3 怪 + XP 寶石</td><td class="num">5</td></tr>
-<tr><td><span class="prio p1">P1</span> 第二批</td><td>T3 神器武器圖（法杖可先共用 1 張）</td><td class="num">8</td></tr>
-<tr><td><span class="prio p1">P1</span> 第三批</td><td>T4/T5 派生武器圖（剪影延續 T3）</td><td class="num">16</td></tr>
-<tr><td><span class="prio p2">P2</span> 搭配程式</td><td>特效貼圖逐項排程（震波 / 元素地 / 旋風 / 冰刀波 / 毒雲 / 亡魂優先）</td><td class="num">N</td></tr>
+<tr><td><span class="prio p1">P1</span> 第一批</td><td>基礎可見性：玩家 + 3 怪 + XP 寶石（已入）</td><td class="num">5</td></tr>
+<tr><td><span class="prio p1">P1</span> 世界樹缺圖</td><td>T3 世界樹枝 + T4 萬藤叢生 + T5 世界樹化身，並補 runtime registry／握點接線</td><td class="num">3</td></tr>
+<tr><td><span class="prio p1">P1</span> 吹雪修改</td><td>T3 名刀吹雪 + T4 吹雪・刃風 + T5 吹雪・居合零式（已入但待修改）</td><td class="num">3</td></tr>
+<tr><td><span class="prio p1">P1</span> 神器既有</td><td>其餘 T3–T5 武器本體已入庫並接線</td><td class="num">24</td></tr>
+<tr><td><span class="prio p1">P1</span> 第四批</td><td>T1/T2 組合底圖（12 張 → 程式合成 215 種；已入）</td><td class="num">12</td></tr>
+<tr><td><span class="prio p1">P1</span> UI 底盤</td><td>CJK 字型+Theme、HP/XP 條、選卡卡框、結算版面（見「UI 與圖示」）</td><td class="num">~5 組</td></tr>
+<tr><td><span class="prio p2">P2</span> 搭配程式</td><td>先補目前完全不可見／明列 placeholder 的 familiar、雷網／雷柱、元素旋風、death sweep／亡魂；再做震波、冰刀波、毒雲等效果升級</td><td class="num">N</td></tr>
 <tr><td><span class="prio p3">P3</span> 後期</td><td>狀態 icon ×6、keystone 圖示 ×9、軸/bucket 圖示 ×12、新怪物</td><td class="num">~30</td></tr>
 </table>
 </section>
