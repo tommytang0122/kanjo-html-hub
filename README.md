@@ -12,6 +12,12 @@
 3. `git add` → `git commit` → `git push`。
 4. GitHub Actions 會自動重建首頁並部署，幾分鐘後生效。
 
+### 密碼保護的頁面
+
+GitHub Pages 沒有存取控制（公開 repo、公開站）。需要限制對象的頁面（如 `projects/laoda-simulator/`）
+由來源專案先用 [StatiCrypt](https://github.com/robinmoisson/staticrypt) 做客戶端 AES 加密再放進來，
+repo 只保存加密後的 HTML；開頁面要輸入密語。首頁索引會照常顯示標題與說明（說明尾端標「密碼保護」）。
+
 ## 一次性設定（GitHub Pages）
 
 到 repo 的 **Settings → Pages → Build and deployment → Source**，選擇 **GitHub Actions**。
